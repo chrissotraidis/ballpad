@@ -8,7 +8,6 @@
   <img alt="Metal renderer" src="https://img.shields.io/badge/renderer-Metal-5E5CE6">
   <img alt="Experimental preview" src="https://img.shields.io/badge/preview-experimental-FFD60A">
   <img alt="Game data not included" src="https://img.shields.io/badge/game%20data-not%20included-FF453A">
-  <a href="https://discord.gg/xwHfUD2bxW"><img alt="Join the community on Discord" src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&amp;logoColor=white"></a>
   <a href="https://discord.gg/UwhfwXx4C"><img alt="Join the BallPad Discord" src="https://img.shields.io/badge/Discord-BallPad%20community-5865F2?logo=discord&amp;logoColor=white"></a>
 </p>
 
@@ -39,7 +38,7 @@ game images, extracted assets, or saves.
 
 BallPad is under active development. Expect bugs and compatibility differences
 between devices; performance, audio, and touch comfort are still being refined.
-Join the [community on Discord](https://discord.gg/xwHfUD2bxW) for updates and testing
+Join the [community on Discord](https://discord.gg/UwhfwXx4C) for updates and testing
 feedback, or [build from source](#build-from-source).
 
 Installing on iPhone or iPad requires signing with your own Apple account. The
@@ -139,8 +138,8 @@ Review it before sharing. Nothing is uploaded or
 submitted automatically; never attach disc images, extracted assets, saves,
 or signing material. A GitHub account is required to submit an issue.
 
-Join the [community on Discord](https://discord.gg/xwHfUD2bxW), shared with
-GalaxyPad, for discussion and testing feedback.
+Join the [BallPad community on Discord](https://discord.gg/UwhfwXx4C)
+for discussion and testing feedback.
 
 </details>
 
