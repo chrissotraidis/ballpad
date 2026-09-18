@@ -38,12 +38,28 @@ game images, extracted assets, or saves.
 
 BallPad is under active development. Expect bugs and compatibility differences
 between devices; performance, audio, and touch comfort are still being refined.
-Join the [community on Discord](https://discord.gg/UwhfwXx4C) for updates and testing
+Download [**BallPad 1.0 Preview 1 (build 2)**](https://github.com/chrissotraidis/ballpad/releases/tag/v1.0-preview.1),
+join the [community on Discord](https://discord.gg/UwhfwXx4C) for updates and testing
 feedback, or [build from source](#build-from-source).
 
 Installing on iPhone or iPad requires signing with your own Apple account. The
-source build produces an unsigned app; it is not a TestFlight or App Store build.
+release IPA is unsigned; it is not a TestFlight or App Store build.
 You must supply the supported game image yourself.
+
+### Install the preview
+
+1. Download [BallPad-unsigned.ipa](https://github.com/chrissotraidis/ballpad/releases/download/v1.0-preview.1/BallPad-unsigned.ipa)
+   from the release. Use an iPhone or iPad running iOS/iPadOS 17 or later; the
+   minimum OS setting has not been validated on every supported device.
+2. Sign and install the IPA using your preferred sideloading tool and your own
+   Apple account. For an update, keep the same signing account and application
+   identity, export your memory card first, and install over the existing app.
+3. Open BallPad and [import your supported ISO or GCM](#first-launch-and-game-data).
+
+The release also includes `BallPad-sources.tar.gz`, `BallPad-FFmpeg-relink.tar.gz`,
+and `SHA256SUMS`. Keep these matching source and relinking materials with the IPA
+when redistributing it. To verify downloaded files on macOS, put all four assets
+in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 ## Current status
 
@@ -153,11 +169,12 @@ identity before compiling.
 <details>
 <summary><strong>Developer prerequisites and build commands</strong></summary>
 
-Use an Apple Silicon Mac with Xcode 26.x and its command-line tools, CMake,
+Use an Apple Silicon Mac with Xcode 26.x or newer and its command-line tools, CMake,
 Ninja, Git, Python 3.10+, and ripgrep. Keep your own supported game image in
 ignored local storage. The [runbook](docs/33-native-strikers-implementation.md)
 and [dependency manifest](docs/native-strikers-dependency-manifest.json) record
-the engine and dependency pins.
+the engine and dependency pins. Preview 1 was built with Xcode 27.0; its device
+and Simulator targets retain the iOS/iPadOS 17 deployment minimum.
 
 From the repository root, bootstrap the pinned engine and dependencies, then
 build the Simulator app:
@@ -283,7 +300,7 @@ private runtime evidence.
 After building the device target and committing the exact app source, run:
 
 ```sh
-scripts/native/package-release.sh --out build/releases/ballpad-build-2 --source-ref HEAD
+scripts/native/package-release.sh --out build/releases/ballpad-preview-1 --source-ref HEAD
 ```
 
 This creates an unsigned IPA, source-material archive, portable FFmpeg relink
