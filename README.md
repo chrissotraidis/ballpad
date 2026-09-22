@@ -210,8 +210,32 @@ xcrun simctl launch booted com.ballpad.strikers
 ```
 
 For a device build, run bootstrap and build with `--platform device`. That
-produces an unsigned app; signing and hardware installation are separate steps.
-A Simulator bundle cannot be installed on an iPad.
+produces an unsigned app. A Simulator bundle cannot be installed on an iPad.
+
+To sign that app with your own Apple account and install it on a connected
+iPhone or iPad:
+
+```sh
+scripts/native/build.sh --platform device
+scripts/native/install-device.sh
+```
+
+The device must be plugged in, unlocked, paired, and have Developer Mode on
+(Settings > Privacy & Security > Developer Mode). Signing material is whatever
+this Mac already has: the Apple Development certificate in the login keychain
+and a provisioning profile Xcode has downloaded that covers the device. Nothing
+is uploaded and no Apple account is contacted. Pass `--device`, `--identity` or
+`--profile` when more than one is available, and `--sign-only` to stop before
+installing.
+
+Installing over an existing copy is an in-place update, so the app's container —
+the imported disc image and the memory card — is kept. iOS keys that on the
+`application-identifier` entitlement rather than the bundle identifier, so a copy
+signed earlier by another tool can carry a string this script would not have
+chosen; the installer names it in its refusal and the script re-signs with it and
+retries once. If it still refuses, the copy on the device belongs to a different
+team: export your memory card from inside the app, delete BallPad, and run it
+again.
 
 Bootstrap fetches the maintained engine fork into ignored `work/native/strikers`
 and checks out the exact manifest revision. Engine changes belong in the maintained
