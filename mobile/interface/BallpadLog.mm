@@ -229,6 +229,7 @@ NSURL *BallpadDiagnosticsReportURL(
 }
 
 NSString *const BallpadFrameLimitUnlimitedKey = @"BallpadUnlimitedFrameRate";
+NSString *const BallpadHideMenuButtonKey = @"BallpadHideMenuButton";
 
 void BallpadLogSettingsSnapshot(NSString *what)
 {
@@ -246,6 +247,7 @@ void BallpadLogSettingsSnapshot(NSString *what)
         @"SunPadHideControlsOnController", @"SunPadModernCStickHorizontal",
         @"SunPadControlOpacity", @"SunPadControlSizeScale", @"SunPadControlSizeScales",
         @"SunPadEditingControlLayout", BallpadFrameLimitUnlimitedKey,
+        BallpadHideMenuButtonKey,
     ];
     NSMutableArray<NSString *> *stored = [NSMutableArray array];
     for (NSString *key in keys)
@@ -254,7 +256,7 @@ void BallpadLogSettingsSnapshot(NSString *what)
 
     BallpadLog(@"settings: %@ -- render scale %ld, aspect mode %ld, opacity %.2f, size %.2f, "
                @"hide-on-controller %d, modern-c-stick %d, fps counter %d, frame-row key %d, "
-               @"layout editing %d, stored [%@]",
+               @"layout editing %d, menu button hidden %d, stored [%@]",
                what,
                (long)settings.renderScale, (long)settings.aspectRatioMode,
                (double)settings.controlOpacity, (double)settings.controlSizeScale,
@@ -263,5 +265,6 @@ void BallpadLogSettingsSnapshot(NSString *what)
                settings.showFPSCounter ? 1 : 0,
                [defaults objectForKey:BallpadFrameLimitUnlimitedKey] != nil ? 1 : 0,
                settings.editingControlLayout ? 1 : 0,
+               [defaults boolForKey:BallpadHideMenuButtonKey] ? 1 : 0,
                stored.count > 0 ? [stored componentsJoinedByString:@","] : @"none");
 }

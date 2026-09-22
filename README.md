@@ -63,6 +63,16 @@ in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 ## Current status
 
+Version 1.0, build 4 makes the interface usable while the game is running. The port's
+frame loop owns the main thread and SDL's pump hands UIKit two microseconds a frame,
+so the three-dot menu was starved; and when the render surface was unavailable the
+loop skipped the frame limiter and spun a core flat out, which is why the app stayed
+unstable until it was backgrounded and brought back. The app now shares each frame
+with UIKit, paces a loop nothing else is pacing, and does far less per-frame
+diagnostic work. The three-dot button can also be hidden — **Controls ▸ Hide Menu
+Button**, with a two-finger tap anywhere to bring it back. See the
+[main-thread notes](docs/43-sharing-the-main-thread-2026-09-22.md).
+
 Version 1.0, build 3 repairs physical controller input. One controller was reaching
 the game twice — once through BallPad's own GameController bridge and once through
 SDL's MFi driver, which Aurora reads on its own account — so the engine saw two

@@ -428,12 +428,33 @@ static NSString *BallpadOverlayTouchReadBack(SunPadGameOverlay *overlay)
 // on: the line is written a third of a second after the tree stops moving, so a touch that ends
 // leaves one reading rather than sixty. The overlay is watched by identity, because a lifecycle
 // rebuild replaces it and a reading of the old tree would describe controls nobody can touch.
+// How often a settled read-back is taken. These samplers each walk the drawn tree and format a
+// string naming every control, and they do it to decide whether anything moved -- so at sixty a
+// second the app was building and comparing that string every frame of a match, on the thread the
+// game runs on, to log a line that can only appear once the reading has been still for 0.35 s.
+// Sampling at ten a second is six times less work for the same lines: the settle window is measured
+// in time rather than in frames, so a reading that has held for a third of a second still has held
+// for a third of a second when it is looked at less often.
+static BOOL BallpadSampleIsDue(CFTimeInterval *last)
+{
+    static CFTimeInterval const kInterval = 0.1;
+    const CFTimeInterval now = CACurrentMediaTime();
+    if (*last != 0.0 && now - *last < kInterval)
+        return NO;
+    *last = now;
+    return YES;
+}
+
 static void BallpadLogOverlayTouchIfSettled(SunPadGameOverlay *overlay)
 {
     static __weak SunPadGameOverlay *s_readFrom = nil;
     static NSString *s_logged = nil;
     static NSString *s_pending = nil;
     static CFTimeInterval s_pendingSince = 0.0;
+    static CFTimeInterval s_lastSample = 0.0;
+
+    if (!BallpadSampleIsDue(&s_lastSample))
+        return;
 
     if (overlay != s_readFrom)
     {
@@ -551,6 +572,11 @@ static void BallpadLogLayoutIfSettled(SunPadGameOverlay *overlay)
     static NSString *s_logged = nil;
     static NSString *s_pending = nil;
     static CFTimeInterval s_pendingSince = 0.0;
+    static CFTimeInterval s_lastSample = 0.0;
+
+    // Sampled rather than taken every frame, for the reason the touch read-back above gives.
+    if (!BallpadSampleIsDue(&s_lastSample))
+        return;
 
     if (overlay != s_readFrom)
     {
@@ -744,6 +770,81 @@ static void BallpadConfigureMenuButton(UIButton *button)
     button.layer.borderWidth = 0.0;
 }
 
+// ── Hiding the menu button ────────────────────────────────────────────────────
+// The three-dot button is the only piece of this app that is on screen for the whole of a match and
+// is not part of the game. Hiding it is a row in its own menu; getting it back is a two-finger tap
+// anywhere, held for a few seconds and then taken away again.
+//
+// Two fingers rather than a corner, because a corner is a place a thumb already goes: the Start
+// control sits in the top-left of the phone layout and the shoulder row runs across the top. Two
+// simultaneous touches are something the game's own controls never ask for as a pair -- and the
+// touches that do land on a control are refused below, so pressing A and B together is not a reveal.
+// The recogniser is on the window rather than on the overlay because the overlay's hit test passes
+// empty space through to the game, so a tap on nothing never reaches it.
+static NSTimeInterval const kBallpadMenuButtonRevealSeconds = 5.0;
+static CFTimeInterval s_menuButtonRevealedUntil = 0.0;
+
+// When UIKit last said it was about to put this app's own menu on screen. -buildMenu is asked for
+// the menu as it opens, which is the only public moment a UIMenu announces itself: UIKit presents
+// it in a window of its own, so there is no presented controller to find and no view of ours to
+// watch. Nothing says when it closes, so the deadline here is generous and the frame sharing below
+// gives it up early, as soon as the run loop goes quiet. Getting it wrong in either direction costs
+// a frame or two of pacing and nothing else.
+static CFTimeInterval s_menuInteractionUntil = 0.0;
+static NSTimeInterval const kBallpadMenuInteractionSeconds = 10.0;
+
+static BOOL BallpadMenuButtonIsHidden(void)
+{
+    return [NSUserDefaults.standardUserDefaults boolForKey:BallpadHideMenuButtonKey];
+}
+
+// The button's drawn state, which is the hidden preference unless a reveal is still running.
+// Alpha and interaction move together: a button faded out that still answered a tap would be a
+// control the player cannot see but can press by accident.
+static void BallpadApplyMenuButtonVisibility(SunPadGameOverlay *overlay, BOOL animated)
+{
+    UIButton *button = BallpadMenuButton(overlay);
+    if (button == nil)
+        return;
+    const BOOL revealed = CACurrentMediaTime() < s_menuButtonRevealedUntil;
+    const BOOL visible = !BallpadMenuButtonIsHidden() || revealed;
+    if (button.userInteractionEnabled == visible && button.alpha == (visible ? 1.0 : 0.0))
+        return;
+    button.userInteractionEnabled = visible;
+    [UIView animateWithDuration:animated ? 0.2 : 0.0
+                     animations:^{ button.alpha = visible ? 1.0 : 0.0; }];
+}
+
+static void BallpadRevealMenuButton(SunPadGameOverlay *overlay)
+{
+    if (!BallpadMenuButtonIsHidden())
+        return;
+    s_menuButtonRevealedUntil = CACurrentMediaTime() + kBallpadMenuButtonRevealSeconds;
+    BallpadApplyMenuButtonVisibility(overlay, YES);
+    BallpadLog(@"menu button: revealed by a two-finger tap for %.0f s",
+               (double)kBallpadMenuButtonRevealSeconds);
+}
+
+// Called once a frame. Cheap on every frame but the one the reveal ends on: a comparison against a
+// deadline that is zero whenever no reveal is running.
+static void BallpadExpireMenuButtonReveal(SunPadGameOverlay *overlay)
+{
+    if (s_menuButtonRevealedUntil == 0.0 || CACurrentMediaTime() < s_menuButtonRevealedUntil)
+        return;
+    s_menuButtonRevealedUntil = 0.0;
+    BallpadApplyMenuButtonVisibility(overlay, YES);
+}
+
+static void BallpadSetMenuButtonHidden(SunPadGameOverlay *overlay, BOOL hidden)
+{
+    [NSUserDefaults.standardUserDefaults setBool:hidden forKey:BallpadHideMenuButtonKey];
+    // Hiding takes effect when the menu that asked for it closes, so the button does not vanish from
+    // under the row the player is still looking at; the reveal window is what carries it across.
+    s_menuButtonRevealedUntil = hidden ? CACurrentMediaTime() + 1.0 : 0.0;
+    BallpadApplyMenuButtonVisibility(overlay, YES);
+    BallpadLog(@"menu button: %@ by its own row", hidden ? @"hidden" : @"shown");
+}
+
 // ── The right shoulder (the operator's "R has to look like L" item) ───────────
 // SunPad's R control is a pressure track built for Sunshine's spray nozzle: it paints a water fill
 // up to a detent line and reports a press only in the last quarter of its width. Strikers wants
@@ -910,8 +1011,24 @@ static void BallpadLogShoulderGeometry(UIView *overlay, NSString *what)
 // the reader to infer a press from a number that has a second meaning.
 static void BallpadLogShoulderOutlineIfChanged(UIView *overlay)
 {
-    UIView *left = BallpadControlLabelled(overlay, @"L");
-    UIView *right = BallpadControlLabelled(overlay, @"R");
+    // The two controls are found once and then held, because this sampler does run every frame -- a
+    // press is an edge and a sampler that missed it would be reporting a control nobody touched --
+    // and BallpadControlLabelled is a recursive walk of the drawn tree comparing an accessibility
+    // label at every node. Twice a frame, for the whole of a match, to answer a question whose
+    // answer is the same object every time. The cache is keyed on the overlay, so a rebuilt one
+    // re-derives them, and a control that has left the tree is re-derived too.
+    static __weak UIView *s_readFrom = nil;
+    static __weak UIView *s_left = nil;
+    static __weak UIView *s_right = nil;
+    if (overlay != s_readFrom || s_left == nil || s_right == nil ||
+        s_left.superview == nil || s_right.superview == nil)
+    {
+        s_readFrom = overlay;
+        s_left = BallpadControlLabelled(overlay, @"L");
+        s_right = BallpadControlLabelled(overlay, @"R");
+    }
+    UIView *left = s_left;
+    UIView *right = s_right;
     if (left == nil || right == nil)
         return;
 
@@ -1586,8 +1703,27 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
 #pragma mark - The menu
 
 // Retain the existing actions and their handlers, grouped by what the player changes.
+// A menu element that contributes no rows and exists to be *asked*. The vendored button holds its
+// menu in `_menuButton.menu`, a built object UIKit displays without calling back into the app, so
+// -buildMenu running is a menu being rebuilt rather than a menu being opened -- and opened is the
+// moment the frame sharing needs. An uncached deferred element is the documented way to be called
+// at that moment: UIKit asks its provider every time the menu is presented, and a provider that
+// completes immediately with nothing adds no row and no delay.
+- (UIDeferredMenuElement *)ballpadMenuOpenNotice
+{
+    return [UIDeferredMenuElement elementWithUncachedProvider:
+        ^(void (^completion)(NSArray<UIMenuElement *> *elements)) {
+            s_menuInteractionUntil = CACurrentMediaTime() + kBallpadMenuInteractionSeconds;
+            completion(@[]);
+        }];
+}
+
 - (UIMenu *)buildMenu
 {
+    // A rebuild follows a row being tapped, which is also a moment UIKit is busy -- presenting a
+    // sheet, or animating the menu away. The notice above is what catches the menu being opened.
+    s_menuInteractionUntil = CACurrentMediaTime() + kBallpadMenuInteractionSeconds;
+
     UIMenu *vendored = [super buildMenu];
     if (vendored == nil)
         return nil;
@@ -1610,13 +1746,37 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
                  ![title hasPrefix:@"Experimental"])
             [other addObject:element];
     }
+    [controls addObject:[self ballpadHideMenuButtonAction]];
     NSMutableArray<UIMenuElement *> *children = [NSMutableArray arrayWithArray:@[
+        [self ballpadMenuOpenNotice],
         [UIMenu menuWithTitle:@"Display" children:display],
         [UIMenu menuWithTitle:@"Controls" children:controls],
         [self ballpadExperimentalMenu]]];
     [children addObjectsFromArray:other];
     [children addObject:[self ballpadAboutAction]];
     return [UIMenu menuWithTitle:BallpadAppDisplayName() children:children];
+}
+
+// The one control on screen for a whole match that is not part of the game. The row is a toggle
+// rather than a one-way hide, and it carries its own way back in the subtitle, because a button that
+// can be hidden with no stated way to return is a setting a player cannot undo.
+- (UIAction *)ballpadHideMenuButtonAction
+{
+    __weak BallpadGameOverlay *weakSelf = self;
+    const BOOL hidden = BallpadMenuButtonIsHidden();
+    UIAction *action = [UIAction actionWithTitle:@"Hide Menu Button"
+                                           image:[UIImage systemImageNamed:@"eye.slash"]
+                                      identifier:nil
+                                         handler:^(__kindof UIAction *selected) {
+        (void)selected;
+        BallpadSetMenuButtonHidden(weakSelf, !BallpadMenuButtonIsHidden());
+        [[[UISelectionFeedbackGenerator alloc] init] selectionChanged];
+        BallpadLogSettingsSnapshot(@"menu hide menu button");
+        [weakSelf refreshMenuButton];
+    }];
+    action.subtitle = @"Two-finger tap anywhere to bring it back";
+    action.state = hidden ? UIMenuElementStateOn : UIMenuElementStateOff;
+    return action;
 }
 
 #pragma mark - Render resolution (item 5)
@@ -2891,10 +3051,34 @@ static void BallpadRefreshFPSCounter(SunPadGameOverlay *overlay)
     // The rolling window is what moves; the run counters stay put until a match is live, so a title
     // screen reads as a rate rather than as a stalled zero.
     NSString *rate = [NSString stringWithFormat:@"%.0f fps", live.fps];
-    label.attributedText = BallpadFPSReading(rate);
+    // Assigned only when the reading it shows has changed. The card is drawn to whole frames a
+    // second, so the text is the same on fifty-odd frames out of sixty -- and assigning
+    // attributedText invalidates the label's layout and commits a transaction whether the string is
+    // new or not, which is a text layout pass per frame to redraw the number that was already there.
+    static __weak UILabel *s_ratedLabel = nil;
+    static NSString *s_rate = nil;
+    if (label != s_ratedLabel || ![rate isEqualToString:s_rate])
+    {
+        s_ratedLabel = label;
+        s_rate = rate;
+        label.attributedText = BallpadFPSReading(rate);
+    }
 
-    // Per frame, and only this: the text. See BallpadPositionFPSCounterLabel for why the frame is
-    // not part of the per-frame work.
+    // The placement, on the settling clock the other read-backs use: the signature is a formatted
+    // description of the surface the card is placed against, and nothing that can move it -- a
+    // rotation, a safe-area change, the panel's size control -- moves it within a tenth of a second.
+    static CFTimeInterval s_lastPlacementCheck = 0.0;
+    if (!BallpadSampleIsDue(&s_lastPlacementCheck))
+        return;
+
+    // The display read-back, published on the card as its accessibility *value*. The card used to
+    // spell the whole reading out and build 2 reduced it to the rate (doc 37), which left the row
+    // that reads "a display setting reached the renderer" with nothing to read -- it had been
+    // parsing this out of the card's label, and has failed on every build since. The value is the
+    // right home for it: what the card draws stays "60 fps", what VoiceOver announces stays
+    // "60 fps", and the reading is still published where a test can address it.
+    label.accessibilityValue = BallpadDisplayReadBack();
+
     NSString *placed = objc_getAssociatedObject(overlay, BallpadFPSCounterPlacedKey);
     NSString *signature = BallpadFPSCounterPlacementSignature(overlay);
     if (placed == nil || ![placed isEqualToString:signature])
@@ -2929,13 +3113,79 @@ static void BallpadLogHostGeometry(UIWindow *window, UIView *container);
 static void BallpadReattachOverlay(NSString *reason);
 
 // SunPadGameOverlay holds its delegate weakly, so the app has to own the receiver.
-@interface BallpadHostUIBridge : NSObject <SunPadGameOverlayDelegate>
+@interface BallpadHostUIBridge : NSObject <SunPadGameOverlayDelegate, UIGestureRecognizerDelegate>
 // The overlay is retained by the view hierarchy that holds it; this is only how a lifecycle
 // notification reaches the one object that knows about it.
 @property(nonatomic, weak) SunPadGameOverlay *overlay;
+// The two-finger tap that brings a hidden menu button back. Held here because it belongs to the
+// window rather than to the overlay, and a rebuilt window needs it put back.
+@property(nonatomic, strong) UITapGestureRecognizer *revealGesture;
 @end
 
 @implementation BallpadHostUIBridge
+
+// ── The reveal gesture ────────────────────────────────────────────────────────
+
+- (void)installRevealGestureOnWindow:(UIWindow *)window
+{
+    if (window == nil)
+        return;
+    if (self.revealGesture.view == window)
+        return;
+    if (self.revealGesture == nil)
+    {
+        UITapGestureRecognizer *tap =
+            [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(revealTapped:)];
+        tap.numberOfTouchesRequired = 2;
+        tap.numberOfTapsRequired = 1;
+        tap.delegate = self;
+        // Observed rather than consumed: the game's own controls keep every touch they would have
+        // had, so a gesture that fires over them changes nothing but the menu button's alpha.
+        tap.cancelsTouchesInView = NO;
+        tap.delaysTouchesBegan = NO;
+        tap.delaysTouchesEnded = NO;
+        self.revealGesture = tap;
+    }
+    [self.revealGesture.view removeGestureRecognizer:self.revealGesture];
+    [window addGestureRecognizer:self.revealGesture];
+}
+
+- (void)revealTapped:(UITapGestureRecognizer *)gesture
+{
+    (void)gesture;
+    BallpadRevealMenuButton(self.overlay);
+}
+
+// A touch that reached the interface is a touch the player meant for it, so it is not part of a
+// reveal: two thumbs on A and B at the same moment, or two fingers on the movement stick, are not a
+// request for the menu button. The test is the overlay rather than UIControl because the stick is a
+// plain UIView -- and it is the right test anyway, since the overlay's own hit test already passes
+// everything it does not own through to the game. What is left is a touch on the game surface,
+// which is the only place a reveal can come from.
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+       shouldReceiveTouch:(UITouch *)touch
+{
+    (void)gestureRecognizer;
+    SunPadGameOverlay *overlay = self.overlay;
+    if (overlay == nil)
+        return NO;
+    for (UIView *view = touch.view; view != nil; view = view.superview)
+    {
+        if (view == overlay)
+            return NO;
+    }
+    return YES;
+}
+
+// The window belongs to SDL and to whatever UIKit puts over it, so this recogniser never claims
+// exclusivity over anything else that wants the same touches.
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+        shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)other
+{
+    (void)gestureRecognizer;
+    (void)other;
+    return YES;
+}
 
 // The two callbacks that return text answer from what this build actually is, so the diagnostic
 // report and any problem report describe Ballpad rather than the project the overlay came from.
@@ -3181,6 +3431,11 @@ static void BallpadReattachOverlay(NSString *reason)
     // Whether or not the superview moved, the button is re-derived: SunPad rebuilds its menu after
     // any inherited setting changes, and a rebuilt button carries no explicit appearance.
     BallpadConfigureMenuButton(BallpadMenuButton(s_overlay));
+    // And its visibility, for the same reason: a rebuilt button is a visible one, so a player who
+    // hid it would find it back after every resume.
+    BallpadApplyMenuButtonVisibility(s_overlay, NO);
+    // The reveal gesture belongs to the window, and a rebuilt surface can bring a different one.
+    [s_bridge installRevealGestureOnWindow:window];
 
     // The same windowing read-back the first attach publishes: a resume and a rotation are the two
     // paths that can hand the overlay a different window from the one it was born on, and both are
@@ -3509,6 +3764,12 @@ extern "C" void PortHostUIStart(void *sdlWindow)
         s_overlay.delegate = s_bridge;
         [host addSubview:s_overlay];
 
+        // The menu button starts in whatever state the player last left it, and the two-finger tap
+        // that brings a hidden one back goes on the window rather than the overlay -- the overlay
+        // passes empty space through to the game, so a tap on nothing never reaches it.
+        BallpadApplyMenuButtonVisibility(s_overlay, NO);
+        [s_bridge installRevealGestureOnWindow:window];
+
         // Registered once, for the same reason the overlay is built once: the notifications are
         // process-wide and the bridge is the process's single receiver for them.
         NSNotificationCenter *notifications = NSNotificationCenter.defaultCenter;
@@ -3608,6 +3869,145 @@ extern "C" int PortHostUIPollPad(PortHostPad *out)
     return 1;
 }
 
+// ── The main thread, shared ───────────────────────────────────────────────────
+// The port's frame loop owns the main thread outright: src/Game/main.cpp runs `while (running)`
+// from the scene delegate, and the only place UIKit gets a turn is SDL's own pump, which runs the
+// run loop for two microseconds and stops at the first source it handles (UIKit_PumpEvents,
+// SDL_uikitevents.m). That is enough for a touch to be delivered and nowhere near enough for UIKit
+// to run a menu: a presented sheet animates, lays out, and hit-tests on the same thread the game
+// is holding, so it arrives in stutters and feels like the app has stopped.
+//
+// It also hides a second defect, which is the one that turns a slow menu into an unresponsive app.
+// When `aurora_begin_frame()` returns false -- no surface, not presentable, paused -- the port's
+// loop `continue`s from the top, and the frame limiter it skips is inside `RunAllTasks`
+// (src/platform/vi.c sleeps there). So the loop stops being paced at all and spins a core flat out,
+// which is both the heat and the "until I close and return to the app": a foreground resume is what
+// rebuilds the surface and lets the loop pace itself again.
+//
+// One mechanism answers both, and it is the only thing the app can do from inside a hook the loop
+// calls: spend part of each frame running the run loop properly. `BallpadYieldToUIKit` drains it
+// until it reports nothing left to handle or a budget is gone, so a frame with an idle UI costs
+// nothing and a frame with a menu on screen hands UIKit most of the time. The floor below it then
+// guarantees a minimum interval between frames, which is what caps a spinning loop -- and because
+// the floor is also spent in the run loop rather than asleep, the spin becomes idle time UIKit can
+// use rather than a burning core.
+//
+// The budget is bounded by the audio, not by taste. PortAudioUpdate tops the stream up to
+// kTargetBuffers (6) of MusyX's own buffers and runs once per frame, so a frame interval that grows
+// past that queue underruns the device. The ceiling here keeps the whole frame inside it with
+// margin.
+namespace {
+
+// What one frame of the game may give UIKit while something of this app's own is on screen. It is
+// bounded by the audio rather than by taste: PortAudioUpdate tops the stream up to kTargetBuffers
+// (six of MusyX's own buffers, about 30 ms) once per frame, so a frame interval that grows past
+// that queue underruns the device. Fourteen milliseconds on top of a frame the engine already
+// spends leaves the whole frame inside it with margin, and is several times what UIKit needs to
+// animate a menu.
+constexpr CFTimeInterval kBallpadUIKitBudget = 0.014;
+// What an ordinary frame spends handing over work that is already queued. Nothing waits here, so a
+// frame of play costs one poll of a run loop with nothing in it.
+constexpr CFTimeInterval kBallpadUIKitPollBudget = 0.001;
+// What one iteration of a loop that is not completing frames waits for. It is the pacing for the
+// spin above and nothing else: the port's own limiter paces every frame that reaches it.
+constexpr CFTimeInterval kBallpadSkippedFrameWait = 0.005;
+// How many frames of an idle run loop end the menu's claim on the thread. Two, because a UIMenu
+// that is open has work every frame and one that has closed has none.
+constexpr int kBallpadIdleFramesToRelease = 2;
+
+// Wait in the run loop for up to `budget`, letting UIKit run. Returns true when the budget ran out
+// with work still arriving; false when the run loop went quiet, which is what idle looks like.
+//
+// The wait is the point. A run loop polled with a zero timeout hands over only what is already
+// queued and returns, which drains a backlog but gives UIKit no time of its own -- and UIKit's work
+// arrives over the frame, on timers and on its own display link, not in a lump at the start of it.
+bool BallpadWaitInRunLoop(CFTimeInterval budget)
+{
+    const CFTimeInterval deadline = CACurrentMediaTime() + budget;
+    for (;;)
+    {
+        const CFTimeInterval remaining = deadline - CACurrentMediaTime();
+        if (remaining <= 0.0)
+            return true;
+        // returnAfterSourceHandled, so the deadline is re-checked between sources rather than after
+        // the whole budget; a quiet run loop blocks until the deadline and reports the timeout.
+        if (CFRunLoopRunInMode(kCFRunLoopDefaultMode, remaining, true) != kCFRunLoopRunHandledSource)
+            return false;
+    }
+}
+
+// Hand over whatever is already queued, without waiting for more.
+void BallpadPollRunLoop(void)
+{
+    const CFTimeInterval deadline = CACurrentMediaTime() + kBallpadUIKitPollBudget;
+    while (CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.0, true) == kCFRunLoopRunHandledSource)
+    {
+        if (CACurrentMediaTime() >= deadline)
+            break;
+    }
+}
+
+// Whether something of the app's own is on screen. The presented controller covers every sheet this
+// app puts up -- the mapping panel, credits, game data, an alert, a share sheet -- the layout editor
+// is the overlay's own mode rather than a presentation, and the menu announces itself through
+// -buildMenu because UIKit gives it a window of its own to live in.
+bool BallpadHostUIIsPresenting(UIWindow *window)
+{
+    if (CACurrentMediaTime() < s_menuInteractionUntil)
+        return true;
+    if (window != nil && window.rootViewController.presentedViewController != nil)
+        return true;
+    return [SunPadSettings sharedSettings].editingControlLayout;
+}
+
+}   // namespace
+
+// The share of the frame this app gives back to UIKit, and the floor that paces a loop nothing else
+// is pacing. Called once per frame, at the end of the host's own per-frame work.
+static void BallpadShareMainThread(UIWindow *window)
+{
+    static unsigned long s_lastPortFrame = 0;
+    static BOOL s_havePortFrame = NO;
+    static int s_idleFrames = 0;
+
+    // Whether the previous iteration of the port's loop completed a frame. `s_portFrame` is
+    // incremented after `aurora_end_frame()`, and `PortUpdateSyntheticInput` publishes it just
+    // before this hook runs, so a counter that has not moved since the last call is exactly the
+    // `continue` that skipped `RunAllTasks` -- and with it the limiter that would have paced the
+    // loop. This is the only case the wait below exists for; a frame that was drawn was paced by
+    // the port itself, including the uncapped row, which is deliberately left uncapped.
+    const unsigned long portFrame = PortInputFrame();
+    const BOOL skipped = s_havePortFrame && portFrame == s_lastPortFrame;
+    s_lastPortFrame = portFrame;
+    s_havePortFrame = YES;
+
+    if (BallpadHostUIIsPresenting(window))
+    {
+        if (BallpadWaitInRunLoop(kBallpadUIKitBudget))
+        {
+            s_idleFrames = 0;
+        }
+        else if (++s_idleFrames >= kBallpadIdleFramesToRelease)
+        {
+            // Whatever was up has stopped asking for the thread. Releasing the menu's claim here is
+            // what keeps a deadline nothing can cancel from costing ten seconds of pacing.
+            s_menuInteractionUntil = 0.0;
+            s_idleFrames = 0;
+        }
+    }
+    else
+    {
+        s_idleFrames = 0;
+        BallpadPollRunLoop();
+    }
+
+    // And the pacing for a loop that is not pacing itself. Spent waiting in the run loop rather than
+    // asleep, so the spin becomes idle time UIKit can use instead of a burning core -- which is what
+    // makes the app answer a touch while the surface it would draw into is missing.
+    if (skipped)
+        BallpadWaitInRunLoop(kBallpadSkippedFrameWait);
+}
+
 extern "C" void PortHostUIFrame(void)
 {
     @autoreleasepool
@@ -3650,7 +4050,13 @@ extern "C" void PortHostUIFrame(void)
         BallpadLogControllerIfChanged();
 
         if (s_overlay == nil)
+        {
+            // Still shared, and this is the path where it matters most: no overlay is the lifecycle
+            // rebuild, and a rebuild is exactly when the surface is gone and the port's loop is
+            // spinning unpaced.
+            BallpadShareMainThread(nil);
             return;
+        }
 
         // The one per-frame job here, and it is a reading rather than an invention: the FPS row's
         // counter (item 5). The overlay's own layout stays where it is -- a resize is UIKit's to
@@ -3674,6 +4080,13 @@ extern "C" void PortHostUIFrame(void)
         // overlay read-back above, measured against the overlay's own -safeAreaInsets, which is the
         // only thing that moves when the device is turned from one landscape side to the other.
         BallpadLogLayoutIfSettled(s_overlay);
+
+        // The menu button's own clock: a reveal is held for a few seconds and then taken back, and
+        // this is the only thing that runs often enough to notice the few seconds are up.
+        BallpadExpireMenuButtonReveal(s_overlay);
+
+        // Last, because everything above is this frame's work and this is what is left of it.
+        BallpadShareMainThread(s_overlay.window);
     }
 }
 

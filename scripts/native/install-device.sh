@@ -21,7 +21,13 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 APP="$(platform_build_dir device)/port/BallpadStrikers.app"
-STAGING="${BUILD_ROOT}/device-signed"
+# Staged outside the repository on purpose. A Mac with "Desktop & Documents" in iCloud has a file
+# provider watching every directory under it, and it puts com.apple.FinderInfo back on a bundle
+# between the signature being written and being verified -- which codesign reports as "resource
+# fork, Finder information, or similar detritus not allowed" on a bundle it signed itself moments
+# earlier. Nothing here needs to survive the run, so the staging copy lives where nothing is
+# watching it. --staging overrides for a run whose signed bundle should be kept somewhere.
+STAGING="${TMPDIR:-/tmp}/ballpad-device-signed"
 FORWARD=()
 
 while [ $# -gt 0 ]; do

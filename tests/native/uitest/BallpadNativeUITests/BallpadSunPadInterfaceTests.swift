@@ -421,7 +421,11 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
 
     private func displayReadBack() -> DisplayReadBack? {
         guard let element = identifierElement("BallpadFPSCounter") else { return nil }
-        let text = element.label
+        // The value, falling back to the label. The card drew the whole reading until build 2
+        // reduced it to the rate, which left this helper parsing "60 fps" and the row failing on
+        // every build since; the reading is published as the card's accessibility value now, where
+        // it does not change what the card draws or what VoiceOver announces.
+        let text = (element.value as? String) ?? element.label
         let pattern = #"(\d+)x(\d+) @([0-9.]+)x aspect ([0-9.]+) (window|pinned) logical (\d+) blend ([0-9.]+)"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))
@@ -1071,7 +1075,13 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
         XCTAssertTrue(menuButton.waitForExistence(timeout: 90),
                       "the overlay is back on screen after resume")
         openMenu()
-        XCTAssertNotNil(scrollMenuForElement("Touch Control Settings…", timeout: 20),
+        // The row this used to look for is inside the Controls group, and scrollMenuForElement only
+        // scrolls the level it is given -- so this assertion could not pass once the menu was
+        // grouped into Display and Controls, and had been failing on every build since. What it is
+        // for is that the menu is open and populated after a resume, which is the group itself;
+        // reaching the row behind it is openTouchSettings' job on the next line, and it taps
+        // Controls first exactly because the row is not published until it does.
+        XCTAssertNotNil(scrollMenuForElement("Controls", timeout: 20),
                         "the menu still opens after resume")
         openTouchSettings()
         XCTAssertNotNil(waitForOverlayElement("Render resolution", timeout: 20),

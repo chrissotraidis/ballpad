@@ -260,7 +260,7 @@ target_link_libraries(strikers PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,ballpad_hos
 # template is configured with @ONLY, so the leftover ${...} that CMake's bundle step would look
 # for is absent and the file it copies is exactly the file written here.
 set(BALLPAD_VERSION "1.0")
-set(BALLPAD_BUILD_VERSION "3")
+set(BALLPAD_BUILD_VERSION "4")
 set(BALLPAD_MIN_OS "${CMAKE_OSX_DEPLOYMENT_TARGET}")
 set(BALLPAD_COPYRIGHT
     "Unofficial project. Not affiliated with or endorsed by Nintendo or Next Level Games. "

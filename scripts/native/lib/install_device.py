@@ -280,6 +280,9 @@ def main():
                      '--timestamp=none', '--generate-entitlement-der', str(signed))
         if result.returncode != 0:
             die('codesign failed:\n' + (result.stderr or result.stdout))
+        # Again before the check, because an attribute put back between the two is enough to fail a
+        # signature that is otherwise sound. See the staging note in install-device.sh.
+        run('xattr', '-cr', str(signed))
         verified = run('codesign', '--verify', '--strict', '--verbose=2', str(signed))
         if verified.returncode != 0:
             die('the signed bundle does not verify:\n' + (verified.stderr or verified.stdout))
