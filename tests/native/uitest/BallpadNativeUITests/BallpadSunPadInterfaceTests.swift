@@ -948,7 +948,7 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
         XCTAssertEqual(binding.value as? String, "A")
         app.buttons["BallpadMappingClose"].tap()
         tapMenuRow("Experimental")
-        XCTAssertNotNil(waitForOverlayElement("Uncapped Frame Rate", timeout: 10))
+        XCTAssertNotNil(waitForOverlayElement("Lift the Port's Frame Cap", timeout: 10))
         XCTAssertNil(overlayElement("Record Audio"))
         XCTAssertNil(overlayElement("Record Audio…"))
         tapMenuRow("Report a Problem…")
@@ -1611,7 +1611,7 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
     /// has, its display rate, and whether vsync is pacing as well, all read by the row's handler
     /// immediately after it calls PortSetFrameLimit.
     private func tapFrameRateRow() -> String {
-        chooseMenuRow("Uncapped Frame Rate", from: "Experimental")
+        chooseMenuRow("Lift the Port's Frame Cap", from: "Experimental")
         let alert = app.alerts["Frame Rate Limit"]
         XCTAssertTrue(alert.waitForExistence(timeout: 30), "the frame-rate row raises its alert")
         let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
@@ -2594,7 +2594,7 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
                                BallpadSunPadInterfaceTests.renderScaleSegments[2],
                                BallpadSunPadInterfaceTests.renderScaleSegments[3]]),
         ("Aspect Ratio", ["Original 4:3", "16:9 (Experimental)", "Fill Screen (Experimental)"]),
-        ("Experimental", ["Uncapped Frame Rate", "Record Audio (Experimental)"]),
+        ("Experimental", ["Lift the Port's Frame Cap", "Record Audio (Experimental)"]),
         ("Game Data & Saves", ["Import or Reimport Game Data", "Import from BallPad Folder",
                                "Remove Stored Game Data"]),
     ]

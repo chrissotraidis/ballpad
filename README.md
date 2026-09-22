@@ -63,6 +63,18 @@ in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 ## Current status
 
+Version 1.0, build 6 moves the engine pin forward ten upstream commits — including a
+crash and texture-cache rework and a goal-replay crash fix — and adds a pause the host
+can ask for. Opening the menu now stops the game rather than slowing it: two new weak
+hooks in the port (`PortHostUIWantsPause`, `PortHostUIIdle`) hold the game still, keep
+the audio transport fed so music carries on, and hand the frame to the interface. The
+same hooks pace the loop when there is no surface to draw into, which build 4 could only
+contain from outside. The Experimental frame row is renamed **Lift the Port's Frame Cap**:
+it was called "Uncapped Frame Rate" and measured at 170 fps uncapped against 59.9 capped,
+which on this engine is the game running fast rather than drawing more — vsync is what
+holds a phone at sixty, not the limiter. See the
+[engine notes](docs/44-engine-rebase-and-pause-2026-09-22.md).
+
 Version 1.0, build 4 makes the interface usable while the game is running. The port's
 frame loop owns the main thread and SDL's pump hands UIKit two microseconds a frame,
 so the three-dot menu was starved; and when the render surface was unavailable the

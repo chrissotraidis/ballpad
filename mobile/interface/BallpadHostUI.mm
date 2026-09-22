@@ -1887,11 +1887,27 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
 // clock, and a native port has no emulated clock to slow, so the row would be a switch that does
 // nothing -- the placeholder doc 33 forbids shipping. The one action below is what stands where
 // item 11's row was, and it is named for what it does on this runtime.
+//
+// It is named that carefully, because it used to be called "Uncapped Frame Rate" and that was a
+// promise this engine cannot keep -- and the reason it cannot is worth stating exactly, because it
+// is the opposite of harmless.
+//
+// The frame loop is the game's clock: one pass is one VIWaitForRetrace is one game frame
+// (include/port/framerate.h). So lifting the cap does not add frames to a second, it adds seconds to
+// the game. Measured in the Simulator, where nothing else paces the loop: 59.9 fps with the cap on,
+// 170 fps with it off -- the same game running close to three times its own speed, with the audio
+// transport still draining in real time underneath it.
+//
+// On a device that reads as sixty either way, and that is the report this row got. What holds it
+// there is vsync, not the limiter: iOS paces an app to 60 Hz on a ProMotion display unless
+// CADisableMinimumFrameDuration is set. So the row looks inert on the phone and is not -- it is one
+// display setting away from running the game fast. The title now says what the switch moves rather
+// than what a player would hope it buys, and the alert says what is really pacing the frames.
 - (UIAction *)ballpadFrameLimitAction
 {
     __weak BallpadGameOverlay *weakSelf = self;
     UIAction *action =
-        [UIAction actionWithTitle:@"Uncapped Frame Rate"
+        [UIAction actionWithTitle:@"Lift the Port's Frame Cap"
                             image:[UIImage systemImageNamed:@"speedometer"]
                        identifier:nil
                           handler:^(__kindof UIAction *selected) {
@@ -1923,10 +1939,11 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
         UIAlertController *alert =
             [UIAlertController alertControllerWithTitle:@"Frame Rate Limit"
                                                message:[NSString stringWithFormat:
-                @"The port's own limiter is now %@. Frames are still produced once per retrace, so "
-                 "this changes what the limiter allows rather than the game's speed; the display "
-                 "reports %.1f Hz%@.",
-                now, displayHz, vsync ? @" and is paced by vsync as well" : @" with no vsync reported"]
+                @"The port's own limiter is now %@. The game advances one frame per pass of the "
+                 "loop, so lifting the cap does not add frames to a second -- it lets the game run "
+                 "fast wherever nothing else paces the loop. Here the display reports %.1f Hz%@, and "
+                 "that is what is holding the rate.",
+                now, displayHz, vsync ? @" and paces by vsync" : @" with no vsync reported"]
                                         preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK"
                                                   style:UIAlertActionStyleDefault
@@ -3898,22 +3915,9 @@ extern "C" int PortHostUIPollPad(PortHostPad *out)
 // margin.
 namespace {
 
-// What one frame of the game may give UIKit while something of this app's own is on screen. It is
-// bounded by the audio rather than by taste: PortAudioUpdate tops the stream up to kTargetBuffers
-// (six of MusyX's own buffers, about 30 ms) once per frame, so a frame interval that grows past
-// that queue underruns the device. Fourteen milliseconds on top of a frame the engine already
-// spends leaves the whole frame inside it with margin, and is several times what UIKit needs to
-// animate a menu.
-constexpr CFTimeInterval kBallpadUIKitBudget = 0.014;
 // What an ordinary frame spends handing over work that is already queued. Nothing waits here, so a
 // frame of play costs one poll of a run loop with nothing in it.
 constexpr CFTimeInterval kBallpadUIKitPollBudget = 0.001;
-// What one iteration of a loop that is not completing frames waits for. It is the pacing for the
-// spin above and nothing else: the port's own limiter paces every frame that reaches it.
-constexpr CFTimeInterval kBallpadSkippedFrameWait = 0.005;
-// How many frames of an idle run loop end the menu's claim on the thread. Two, because a UIMenu
-// that is open has work every frame and one that has closed has none.
-constexpr int kBallpadIdleFramesToRelease = 2;
 
 // Wait in the run loop for up to `budget`, letting UIKit run. Returns true when the budget ran out
 // with work still arriving; false when the run loop went quiet, which is what idle looks like.
@@ -3962,50 +3966,61 @@ bool BallpadHostUIIsPresenting(UIWindow *window)
 
 }   // namespace
 
-// The share of the frame this app gives back to UIKit, and the floor that paces a loop nothing else
-// is pacing. Called once per frame, at the end of the host's own per-frame work.
+// Whether the last paused frame's wait ended with the run loop quiet rather than with the time
+// running out. It is how the pause below learns that a menu has closed, which UIKit does not say.
+static BOOL s_runLoopWentQuiet = NO;
+
+// Whatever UIKit already has queued, handed over and no more. Called once per frame, at the end of
+// the host's own per-frame work, and it is all an ordinary frame of play needs: the port asks
+// PortHostUIWantsPause below when the app's own interface is up, and a paused frame's time comes
+// back through PortHostUIIdle rather than being taken from a frame the game is drawing.
 static void BallpadShareMainThread(UIWindow *window)
 {
-    static unsigned long s_lastPortFrame = 0;
-    static BOOL s_havePortFrame = NO;
-    static int s_idleFrames = 0;
+    (void)window;
+    BallpadPollRunLoop();
+}
 
-    // Whether the previous iteration of the port's loop completed a frame. `s_portFrame` is
-    // incremented after `aurora_end_frame()`, and `PortUpdateSyntheticInput` publishes it just
-    // before this hook runs, so a counter that has not moved since the last call is exactly the
-    // `continue` that skipped `RunAllTasks` -- and with it the limiter that would have paced the
-    // loop. This is the only case the wait below exists for; a frame that was drawn was paced by
-    // the port itself, including the uncapped row, which is deliberately left uncapped.
-    const unsigned long portFrame = PortInputFrame();
-    const BOOL skipped = s_havePortFrame && portFrame == s_lastPortFrame;
-    s_lastPortFrame = portFrame;
-    s_havePortFrame = YES;
+// ── The port's two idle hooks ────────────────────────────────────────────────
+// Between them these replace what this file used to do by taking time away from the frame loop,
+// which could only ever slow the game down: the loop is the game's clock -- one pass is one
+// VIWaitForRetrace is one game frame -- so a host that wanted a smooth menu had the choice of a
+// stuttering menu or a game running in slow motion behind it. Now the port stops instead.
 
-    if (BallpadHostUIIsPresenting(window))
+// The game is held still while this app's own interface is on screen, and released the moment two
+// frames go by with nothing left in the run loop. Nothing tells the app when a UIMenu closes, so the
+// menu's own claim is a deadline that this gives up early rather than one that has to expire.
+extern "C" int PortHostUIWantsPause(void)
+{
+    static int s_quietFrames = 0;
+    UIWindow *window = s_overlay.window;
+    if (!BallpadHostUIIsPresenting(window))
     {
-        if (BallpadWaitInRunLoop(kBallpadUIKitBudget))
-        {
-            s_idleFrames = 0;
-        }
-        else if (++s_idleFrames >= kBallpadIdleFramesToRelease)
-        {
-            // Whatever was up has stopped asking for the thread. Releasing the menu's claim here is
-            // what keeps a deadline nothing can cancel from costing ten seconds of pacing.
-            s_menuInteractionUntil = 0.0;
-            s_idleFrames = 0;
-        }
+        s_quietFrames = 0;
+        return 0;
     }
-    else
+    // A run loop that has gone quiet on two paused frames running is an interface that has stopped
+    // asking for the thread, whatever the menu's deadline still says. Nothing tells the app when a
+    // UIMenu closes, so this is what gives that claim up rather than waiting for it to expire; a
+    // sheet is still a presented controller afterwards and answers for itself on the re-check.
+    s_quietFrames = s_runLoopWentQuiet ? s_quietFrames + 1 : 0;
+    if (s_quietFrames >= 2)
     {
-        s_idleFrames = 0;
-        BallpadPollRunLoop();
+        s_quietFrames = 0;
+        s_menuInteractionUntil = 0.0;
+        return BallpadHostUIIsPresenting(window) ? 1 : 0;
     }
+    return 1;
+}
 
-    // And the pacing for a loop that is not pacing itself. Spent waiting in the run loop rather than
-    // asleep, so the spin becomes idle time UIKit can use instead of a burning core -- which is what
-    // makes the app answer a touch while the surface it would draw into is missing.
-    if (skipped)
-        BallpadWaitInRunLoop(kBallpadSkippedFrameWait);
+// The frame the port is not drawing, spent running UIKit instead of asleep. This is the whole of
+// "the menu is smooth": while it is open the app gets essentially the entire main thread, because
+// the game has stopped asking for it.
+extern "C" void PortHostUIIdle(double seconds)
+{
+    @autoreleasepool
+    {
+        s_runLoopWentQuiet = !BallpadWaitInRunLoop(seconds > 0.0 ? seconds : 0.001);
+    }
 }
 
 extern "C" void PortHostUIFrame(void)
