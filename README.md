@@ -63,15 +63,29 @@ in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 ## Current status
 
-Version 1.0, build 2 refreshes the app icon, About & Credits, keyboard-aware problem
-reporting, and FPS badge, and adds movie/scene diagnostics for rendering reports.
-It also keeps imported game-data paths working when iOS relocates the app during
-an in-place update.
+Version 1.0, build 3 repairs physical controller input. One controller was reaching
+the game twice — once through BallPad's own GameController bridge and once through
+SDL's MFi driver, which Aurora reads on its own account — so the engine saw two
+GameCube pads pressing every button. A frame carrying both A and B is resolved as B
+by the front-end screens that test B first, which is why the main menu worked and
+every submenu behaved as if B had been pressed. The app's bridge is now the only
+reader. Build 3 also stops a quick tap being dropped between queue hops, stops a
+button held across a background from sticking down, and keeps the pad polled while
+the overlay is being rebuilt. See the
+[controller notes](docs/42-physical-controller-single-reader-2026-09-22.md).
 
-Build 2 has been installed and launched with game data on iPad Pro and iPhone 14.
-Gameplay has been tested on both platforms. Simulator checks cover the front end,
-a live match with scoring and replay, memory-card screens, and focused controls/settings flows. Sustained performance, physical
-controller and multitouch behavior, and full-game validation remain work in progress.
+Build 2 refreshed the app icon, About & Credits, keyboard-aware problem reporting
+and the FPS badge, added movie/scene diagnostics for rendering reports, and kept
+imported game-data paths working when iOS relocates the app during an in-place
+update.
+
+Build 2 was installed and launched with game data on iPad Pro and iPhone 14, and
+gameplay was tested on both. Build 3's controller repair is verified in the
+Simulator against the engine's own pad read-back; it has not yet been played
+through on hardware. Simulator checks cover the front end, a live match with
+scoring and replay, memory-card screens, and focused controls/settings flows.
+Sustained performance, multitouch behavior, and full-game validation remain work
+in progress.
 
 | Area | Current result |
 | --- | --- |
@@ -83,10 +97,14 @@ controller and multitouch behavior, and full-game validation remain work in prog
 | Status | Experimental; broader device testing and full-game validation remain in progress |
 
 **Known issues:** intro movies and some stadium introductions have reported rendering
-artifacts on hardware. Local multiplayer with two controllers is still unverified.
-These remain open while testing continues.
+artifacts on hardware. Local multiplayer with two physical controllers is not wired:
+the port's host seam carries a single pad, so a second controller is tracked and
+logged but has nowhere to be offered. Controller rumble through SDL is gone with the
+MFi driver that caused the duplicate-input defect. These remain open while testing
+continues.
 
-See the [testing notes](docs/37-local-controls-2026-09-16.md) and
+See the [controller notes](docs/42-physical-controller-single-reader-2026-09-22.md),
+the [testing notes](docs/37-local-controls-2026-09-16.md) and
 [development record](docs/36-native-strikers-progress.md) for tested behavior and
 known limitations. Simulator results do not establish physical-device performance.
 

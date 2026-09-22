@@ -36,6 +36,46 @@ namespace {
 // nothing on the pad did.
 constexpr uint8_t kBallpadTriggerPressThreshold = 30;
 
+// This bridge is the *only* reader of a physical controller on iOS, and this is what makes that
+// true rather than merely intended.
+//
+// SDL's own MFi joystick driver enumerates the very same `GCController` objects this file observes,
+// and Aurora then reads them into the engine's pad on its own account (`PADRead`, in
+// extern/aurora/lib/dolphin/pad/pad.cpp). With both readers live, one controller reaches the game
+// twice: once through this bridge -- the app's map, the player's own remap, the same mixer a finger
+// uses -- and once through Aurora's positional map, on whichever port SDL's player index happened
+// to hand it. That was measured rather than assumed: a single scripted press landed as
+// `cur=0x0100,0x0000,0x0100,0x0000` in the engine's own four-port pad dump, one press on two ports.
+//
+// Three things follow from it, and all three are defects a player meets.
+//   * The maps disagree. This bridge binds the right shoulder to the GameCube R and the left
+//     shoulder to Z; Aurora's table binds the right shoulder to Z and the left to nothing. OR'ed
+//     together, one press of R1 presses both R and Z.
+//   * The front end counts pads. `IChooseSide::UpdateForFE` and `IChooseCaptain::Update` iterate all
+//     four ports and branch on `IsConnected`, so a duplicate is a phantom second player in exactly
+//     the Grudge Match flow.
+//   * When both readings land on the same port they are OR'ed into one button mask, and any
+//     disagreement about the A/B pair then puts *both* bits in the same frame. Every front-end
+//     screen that tests B before A -- `IChooseCaptain::Update` is one, and its B is
+//     `PopEntireStack()` back to the main menu -- resolves such a frame as B. That is the whole of
+//     "the main menu is fine but in a submenu A acts like B": at the root, a frame carrying A and B
+//     resolves as A, so nothing looks wrong until there is a screen to go back from.
+//
+// `SDL_JOYSTICK_MFI=0` turns the second reader off at its source: `IOS_JoystickInit` returns before
+// registering anything, so no `GCController` becomes an SDL gamepad and Aurora has nothing to read.
+// Aurora's keyboard bindings still hold port 0 open, which is the same thing that keeps the pad
+// alive for touch-only play, so the port the game reads is unchanged -- only the second writer to it
+// is gone.
+//
+// Written into the environment rather than through `SDL_SetHint` because SDL's joystick subsystem is
+// initialized inside Aurora's own start-up, before any hook of this app's runs; a static initializer
+// is the one thing that is reliably earlier. SDL resolves an unset hint from the environment, so
+// this is the same switch `SDL_SetHint` would throw.
+struct BallpadPhysicalControllerOwnership {
+  BallpadPhysicalControllerOwnership() { setenv("SDL_JOYSTICK_MFI", "0", 1); }
+};
+const BallpadPhysicalControllerOwnership kBallpadPhysicalControllerOwnership;
+
 uintptr_t ControllerInstanceID(GCController *controller) {
   return reinterpret_cast<uintptr_t>((__bridge void *)controller);
 }
@@ -321,12 +361,48 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
   [self reconcileControllers];
 }
 
+- (void)releaseHeldInput {
+  {
+    std::scoped_lock lock(_stateMutex);
+    for (SunPadInputState& state : _states) {
+      const int connected = state.connected;
+      state = {};
+      // The slot keeps saying a pad is there; what it stops saying is that anything on it is held.
+      state.connected = connected;
+    }
+  }
+  [[SunPadInputMixer sharedMixer] clearInputFromTouch:NO];
+}
+
+- (void)resampleControllers {
+  for (NSNumber *key in _configuredControllers.allKeys) {
+    GCController *controller = _configuredControllers[key];
+    GCExtendedGamepad *gamepad = controller.extendedGamepad;
+    if (gamepad != nil) {
+      [self publishController:controller gamepad:gamepad];
+    }
+  }
+}
+
 - (void)publishController:(GCController *)controller
                   gamepad:(GCExtendedGamepad *)gamepad {
+  [self publishController:controller sample:SampleFromGamepad(gamepad)];
+}
+
+// The sample is taken by the caller rather than here, and that is the whole point of the split: the
+// device's own frame has to be read on the frame it was delivered. `valueChangedHandler` hands over
+// the pad at the moment something moved, and reading it later -- after a hop to the main queue --
+// reads whatever the pad holds *then*. A press and its release that both happen between two hops
+// therefore look like nothing at all: the bridge never observes the pressed state, so the mixer has
+// no rising edge to latch and the tap is gone. Taking the sample where the event is delivered is
+// what makes a quick tap survive the hop; everything below still runs on the main thread, because
+// the slot table and the mixer are main-thread state.
+- (void)publishController:(GCController *)controller
+                   sample:(const BallpadPhysicalControllerSample&)sample {
   const int slot = _slots.SlotFor(ControllerInstanceID(controller));
   if (slot < 0 || slot >= static_cast<int>(SunPadControllerSlots::kMaxPlayers)) return;
-  const SunPadInputState state = BallpadAdaptPhysicalControllerSample(
-      SampleFromGamepad(gamepad), [SunPadControllerMappingStore mapping]);
+  const SunPadInputState state =
+      BallpadAdaptPhysicalControllerSample(sample, [SunPadControllerMappingStore mapping]);
   {
     std::scoped_lock lock(_stateMutex);
     _states[static_cast<std::size_t>(slot)] = state;
@@ -347,13 +423,17 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
   __weak GCController *weakController = controller;
   gamepad.valueChangedHandler = ^(GCExtendedGamepad *pad, GCControllerElement *element) {
     (void)element;
-    // GameController delivers on its own queue; everything downstream of this -- the mixer and the
-    // port's per-frame poll -- is main-thread state.
+    // Read the pad here, on GameController's own queue, because this is the only moment the sample
+    // and the event agree; see -publishController:sample: for what re-reading it after the hop
+    // costs. What crosses the queue is the finished struct, which is a plain value with no Apple
+    // types in it -- everything downstream, the mixer and the port's per-frame poll, is main-thread
+    // state.
+    const BallpadPhysicalControllerSample sample = SampleFromGamepad(pad);
     dispatch_async(dispatch_get_main_queue(), ^{
       BallpadPhysicalControllers *strongSelf = weakSelf;
       GCController *strongController = weakController;
       if (strongSelf != nil && strongController != nil) {
-        [strongSelf publishController:strongController gamepad:pad];
+        [strongSelf publishController:strongController sample:sample];
       }
     });
   };
@@ -422,6 +502,17 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
       _configuredControllers[key] = controller;
       [self configureController:controller slot:static_cast<std::size_t>(slot)];
       BallpadLog(@"controller: assigned instance 0x%lx slot %d vendor %@", instance, slot + 1, controller.vendorName != nil ? controller.vendorName : @"unknown");
+      // The map goes in the log beside the pad that will be read through it, not only when the fault
+      // injector runs. A controller report that names the pad but not what its buttons were bound to
+      // leaves the question such a report is usually asked unanswerable, and the map is a stored
+      // preference the player can have changed. Its own line rather than a longer one above, because
+      // that line's shape is what scripts/native/f12-pad-summary.awk reads a vendor name out of.
+      const SunPadControllerButtonMapping mapping = [SunPadControllerMappingStore mapping];
+      BallpadLog(@"controller: slot %d category %@ map a 0x%02x b 0x%02x x 0x%02x y 0x%02x z 0x%02x",
+                 slot + 1,
+                 controller.productCategory != nil ? controller.productCategory : @"unknown",
+                 (unsigned)mapping.gameA, (unsigned)mapping.gameB, (unsigned)mapping.gameX,
+                 (unsigned)mapping.gameY, (unsigned)mapping.gameZ);
     }
   }
 }

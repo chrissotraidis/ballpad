@@ -3015,12 +3015,13 @@ static void BallpadReattachOverlay(NSString *reason);
     });
 }
 
-// The fourth delegate action, and the one that used to be log-only. Upstream answers it with its
-// own narrow A/B/X/Y/Z remap store; on this port the physical map belongs to the rendering platform
-// and is chosen at start-up from STRIKERS_PAD_*, so there is no remap table to route a row into and
-// a row that wrote one would be the nonfunctional placeholder doc 33 forbids. What the row can do
-// honestly is show the map the port actually resolved: PortPadMapping rebuilds its table on every
-// call, so a controller connected a moment ago appears when the panel is reopened or refreshed.
+// The fourth delegate action, and the one that used to be log-only. It is answered with the
+// vendored A/B/X/Y/Z remap store, and that is now the only map a physical controller travels
+// through: BallPad's GameController bridge is the single reader of a pad on this runtime, because
+// SDL's MFi driver is switched off so that Aurora cannot read the same controller a second time
+// (see BallpadPhysicalControllers.mm, and doc 42). The port's own STRIKERS_PAD_* table still exists
+// but has no device to resolve against here, so a row that showed it would be describing a map
+// nothing is read through.
 - (void)gameOverlayRequestsControllerMapping:(SunPadGameOverlay *)overlay
 {
     BallpadLog(@"host ui: controller mapping requested; presenting the port's own pad map");
@@ -3051,7 +3052,14 @@ static void BallpadReattachOverlay(NSString *reason);
     // left held would be held for the rest of the session.
     s_rightShoulderHeld = false;
     s_rightShoulderPressEdge = false;
-    BallpadLog(@"host ui: background; touch input released at the mixer");
+    // And the controller half, for exactly the reason the shoulder above needs its own line:
+    // GameController stops delivering while the app is away, so a button held as the app goes into
+    // the background has its release delivered to nobody. Left alone, the bridge's last published
+    // state keeps that button down for the rest of the session -- and a stuck B is a front end that
+    // walks out of every screen it is given. What is published when the app comes back is a fresh
+    // read of the pad, not this one; see applicationDidBecomeActive:.
+    [[BallpadPhysicalControllers sharedControllers] releaseHeldInput];
+    BallpadLog(@"host ui: background; touch and controller input released at the mixer");
 }
 
 // Logged rather than acted on: the port resumes the frame loop from its own lifecycle, so the
@@ -3072,6 +3080,12 @@ static void BallpadReattachOverlay(NSString *reason);
     // reconcile is what makes the mixer's controller half agree with what is actually in the
     // session rather than with what was there when the app last drew.
     [[BallpadPhysicalControllers sharedControllers] reconcileControllers];
+    // And a fresh read of the pads the bridge already held. The reconcile above cannot do it: a
+    // controller that was configured before the app went away is still configured, so it is
+    // deliberately left alone and nothing re-publishes what it is doing now. Without this the slot
+    // resumes on the rest state the background cleared it to, and a stick held through the resume
+    // reads as centred until the player moves it again.
+    [[BallpadPhysicalControllers sharedControllers] resampleControllers];
     // The touch controls' own settings are re-read here for the same reason the controller
     // enumeration is: a foreground resume is the point at which what the user changed elsewhere --
     // in the Files-visible store, or in another scene -- can differ from what this overlay holds.
@@ -3535,7 +3549,14 @@ extern "C" void PortHostUIStart(void *sdlWindow)
 
 extern "C" int PortHostUIPollPad(PortHostPad *out)
 {
-    if (out == nullptr || s_overlay == nil)
+    // Deliberately not gated on the overlay. The overlay is the touch half of this app's input; the
+    // controller bridge is the other half, and it is started in PortHostUIStart before the window is
+    // even looked for, precisely so a run with no overlay still has a working pad. Refusing to poll
+    // while the overlay is missing -- a lifecycle rebuild is the case that happens -- did two things,
+    // and both were wrong: it dropped a physical controller's input for those frames, and because the
+    // mixer latches rising edges and only clears them when it is consumed, every press made in that
+    // window was held and then delivered all at once on the first frame after the overlay came back.
+    if (out == nullptr)
         return 0;
 
     // Logged once rather than per frame. This is the only line that shows the port's frame loop
