@@ -70,6 +70,12 @@ FOUNDATION_EXPORT void BallpadLogSettingsSnapshot(NSString *what);
 // settings read-back below has to name it to report it.
 FOUNDATION_EXPORT NSString *const BallpadFrameLimitUnlimitedKey;
 
+// And the menu button's own: whether the three-dot button is kept off the screen while playing. It
+// is Ballpad's key for the same reason the one above is -- the vendored component has no such row --
+// and the settings read-back names it so a report says whether the button was hidden when something
+// could not be reached.
+FOUNDATION_EXPORT NSString *const BallpadHideMenuButtonKey;
+
 NS_ASSUME_NONNULL_END
 
 #endif // BALLPAD_LOG_H

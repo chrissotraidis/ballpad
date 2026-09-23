@@ -25,7 +25,7 @@ adapts. See [full attribution](ATTRIBUTION.md) and [third-party notices](THIRD_P
 
 BallPad is the Apple app repository. Its engine changes live in the maintained
 [Strikers fork](https://github.com/chrissotraidis/strikers), built from
-`new-coke/strikers` v1.1.1 with the upstream history preserved. Builds select an
+`new-coke/strikers` v1.3.0 with the upstream history preserved. Builds select an
 exact fork commit; they do not apply a patch series. The
 [dependency manifest](docs/native-strikers-dependency-manifest.json) records the
 source relationships and exact versions. BallPad's work is the Apple integration,
@@ -63,15 +63,58 @@ in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 ## Current status
 
-Version 1.0, build 2 refreshes the app icon, About & Credits, keyboard-aware problem
-reporting, and FPS badge, and adds movie/scene diagnostics for rendering reports.
-It also keeps imported game-data paths working when iOS relocates the app during
-an in-place update.
+Version 1.0, build 7 updates the maintained engine to upstream Strikers v1.3.0.
+It includes upstream fixes for an AI pass crash, goal replay hangs, and input lag
+with VSync. BallPad retains its own iOS controller bridge, game-data importer,
+and host pause hooks. Upstream's desktop settings app, Switch support, and
+texture-pack controls are not BallPad features. See the
+[v1.3.0 integration notes](docs/45-strikers-v1.3-integration-2026-09-23.md).
 
-Build 2 has been installed and launched with game data on iPad Pro and iPhone 14.
-Gameplay has been tested on both platforms. Simulator checks cover the front end,
-a live match with scoring and replay, memory-card screens, and focused controls/settings flows. Sustained performance, physical
-controller and multitouch behavior, and full-game validation remain work in progress.
+Version 1.0, build 6 moves the engine pin forward ten upstream commits — including a
+crash and texture-cache rework and a goal-replay crash fix — and adds a pause the host
+can ask for. Opening the menu now stops the game rather than slowing it: two new weak
+hooks in the port (`PortHostUIWantsPause`, `PortHostUIIdle`) hold the game still, keep
+the audio transport fed so music carries on, and hand the frame to the interface. The
+same hooks pace the loop when there is no surface to draw into, which build 4 could only
+contain from outside. The Experimental frame row is renamed **Lift the Port's Frame Cap**:
+it was called "Uncapped Frame Rate" and measured at 170 fps uncapped against 59.9 capped,
+which on this engine is the game running fast rather than drawing more — vsync is what
+holds a phone at sixty, not the limiter. See the
+[engine notes](docs/44-engine-rebase-and-pause-2026-09-22.md).
+
+Version 1.0, build 4 makes the interface usable while the game is running. The port's
+frame loop owns the main thread and SDL's pump hands UIKit two microseconds a frame,
+so the three-dot menu was starved; and when the render surface was unavailable the
+loop skipped the frame limiter and spun a core flat out, which is why the app stayed
+unstable until it was backgrounded and brought back. The app now shares each frame
+with UIKit, paces a loop nothing else is pacing, and does far less per-frame
+diagnostic work. The three-dot button can also be hidden — **Controls ▸ Hide Menu
+Button**, with a two-finger tap anywhere to bring it back. See the
+[main-thread notes](docs/43-sharing-the-main-thread-2026-09-22.md).
+
+Version 1.0, build 3 repairs physical controller input. One controller was reaching
+the game twice — once through BallPad's own GameController bridge and once through
+SDL's MFi driver, which Aurora reads on its own account — so the engine saw two
+GameCube pads pressing every button. A frame carrying both A and B is resolved as B
+by the front-end screens that test B first, which is why the main menu worked and
+every submenu behaved as if B had been pressed. The app's bridge is now the only
+reader. Build 3 also stops a quick tap being dropped between queue hops, stops a
+button held across a background from sticking down, and keeps the pad polled while
+the overlay is being rebuilt. See the
+[controller notes](docs/42-physical-controller-single-reader-2026-09-22.md).
+
+Build 2 refreshed the app icon, About & Credits, keyboard-aware problem reporting
+and the FPS badge, added movie/scene diagnostics for rendering reports, and kept
+imported game-data paths working when iOS relocates the app during an in-place
+update.
+
+Build 2 was installed and launched with game data on iPad Pro and iPhone 14, and
+gameplay was tested on both. Build 3's controller repair is verified in the
+Simulator against the engine's own pad read-back; it has not yet been played
+through on hardware. Simulator checks cover the front end, a live match with
+scoring and replay, memory-card screens, and focused controls/settings flows.
+Sustained performance, multitouch behavior, and full-game validation remain work
+in progress.
 
 | Area | Current result |
 | --- | --- |
@@ -83,10 +126,14 @@ controller and multitouch behavior, and full-game validation remain work in prog
 | Status | Experimental; broader device testing and full-game validation remain in progress |
 
 **Known issues:** intro movies and some stadium introductions have reported rendering
-artifacts on hardware. Local multiplayer with two controllers is still unverified.
-These remain open while testing continues.
+artifacts on hardware. Local multiplayer with two physical controllers is not wired:
+the port's host seam carries a single pad, so a second controller is tracked and
+logged but has nowhere to be offered. Controller rumble through SDL is gone with the
+MFi driver that caused the duplicate-input defect. These remain open while testing
+continues.
 
-See the [testing notes](docs/37-local-controls-2026-09-16.md) and
+See the [controller notes](docs/42-physical-controller-single-reader-2026-09-22.md),
+the [testing notes](docs/37-local-controls-2026-09-16.md) and
 [development record](docs/36-native-strikers-progress.md) for tested behavior and
 known limitations. Simulator results do not establish physical-device performance.
 
@@ -192,8 +239,32 @@ xcrun simctl launch booted com.ballpad.strikers
 ```
 
 For a device build, run bootstrap and build with `--platform device`. That
-produces an unsigned app; signing and hardware installation are separate steps.
-A Simulator bundle cannot be installed on an iPad.
+produces an unsigned app. A Simulator bundle cannot be installed on an iPad.
+
+To sign that app with your own Apple account and install it on a connected
+iPhone or iPad:
+
+```sh
+scripts/native/build.sh --platform device
+scripts/native/install-device.sh
+```
+
+The device must be plugged in, unlocked, paired, and have Developer Mode on
+(Settings > Privacy & Security > Developer Mode). Signing material is whatever
+this Mac already has: the Apple Development certificate in the login keychain
+and a provisioning profile Xcode has downloaded that covers the device. Nothing
+is uploaded and no Apple account is contacted. Pass `--device`, `--identity` or
+`--profile` when more than one is available, and `--sign-only` to stop before
+installing.
+
+Installing over an existing copy is an in-place update, so the app's container —
+the imported disc image and the memory card — is kept. iOS keys that on the
+`application-identifier` entitlement rather than the bundle identifier, so a copy
+signed earlier by another tool can carry a string this script would not have
+chosen; the installer names it in its refusal and the script re-signs with it and
+retries once. If it still refuses, the copy on the device belongs to a different
+team: export your memory card from inside the app, delete BallPad, and run it
+again.
 
 Bootstrap fetches the maintained engine fork into ignored `work/native/strikers`
 and checks out the exact manifest revision. Engine changes belong in the maintained

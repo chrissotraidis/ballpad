@@ -4,13 +4,13 @@
   "generated_on": "2026-09-16",
   "engine_pin": {
     "repository": "https://github.com/chrissotraidis/strikers",
-    "revision": "37c0ad9a1d2b4fc5627943d737b9db54047f1f0e",
-    "version": "v1.1.1 + BallPad iOS/iPadOS integration",
+    "revision": "c4ee7189e7f9193be6ec7cedd569a17f25266136",
+    "version": "v1.3.0+upstream b0e54c9 + BallPad iOS/iPadOS integration",
     "upstream_repository": "https://github.com/new-coke/strikers",
-    "upstream_revision": "22649cb12c112454a34217429296c95bb181af8a",
-    "upstream_version": "v1.1.1",
+    "upstream_revision": "b0e54c9a51cbfcfef7e5487feb02f843ff723d97",
+    "upstream_version": "v1.3.0",
     "remote_name": "origin",
-    "development_branch": "ballpad-ios",
+    "development_branch": "ballpad-ios-v1.3",
     "local_fork": "work/native/strikers"
   },
   "notes": [
@@ -33,7 +33,7 @@
       "name": "new-coke/strikers native port",
       "kind": "engine",
       "upstream": "https://github.com/new-coke/strikers",
-      "revision": "37c0ad9a1d2b4fc5627943d737b9db54047f1f0e",
+      "revision": "c4ee7189e7f9193be6ec7cedd569a17f25266136",
       "license": "CC0 1.0 for the port author's own material within their rights, except where otherwise noted; reconstructed game code retains its own unsettled status",
       "license_files": [
         "README.md",
@@ -57,7 +57,7 @@
         "device"
       ],
       "maintained_repository": "https://github.com/chrissotraidis/strikers",
-      "upstream_revision": "22649cb12c112454a34217429296c95bb181af8a"
+      "upstream_revision": "b0e54c9a51cbfcfef7e5487feb02f843ff723d97"
     },
     {
       "id": "smstrikers-decomp",

@@ -67,6 +67,17 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
 
 - (void)reconcileControllers;
 
+// The two halves of a lifecycle cycle, and they exist because GameController stops delivering while
+// the app is away. A button held as the app goes to the background has its release delivered to
+// nobody, so without `releaseHeldInput` the bridge's last published state keeps that button down for
+// the rest of the session -- and a stuck B is a front end that leaves every screen it is given.
+// `resampleControllers` is the other side: it re-reads every pad the bridge already holds, so the
+// state the game resumes on is what the sticks and buttons are doing now rather than the rest state
+// the background left behind. `reconcileControllers` cannot do that job, because a controller that
+// was configured before the app went away is still configured and is deliberately not re-configured.
+- (void)releaseHeldInput;
+- (void)resampleControllers;
+
 // The bridge's own record of what it last published into each slot. Read rather than consumed:
 // this app has one consumer and the vendored mixer already latches rising edges, so a second latch
 // here would be a second place for an edge to be cleared and a second thing to keep in agreement

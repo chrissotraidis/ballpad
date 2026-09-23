@@ -11,11 +11,11 @@ readonly BALLPAD_ROOT
 
 # Maintained source pin. Bootstrap and provenance checks consume this exact commit.
 readonly ENGINE_URL="https://github.com/chrissotraidis/strikers.git"
-readonly ENGINE_PIN="37c0ad9a1d2b4fc5627943d737b9db54047f1f0e"
-readonly ENGINE_SOURCE_TREE="4ab84fed40b760f8bac4965603aa2f377ba6318c"
+readonly ENGINE_PIN="c4ee7189e7f9193be6ec7cedd569a17f25266136"
+readonly ENGINE_SOURCE_TREE="c64813ea6117428a345477edc543fe56e94d5f3f"
 readonly UPSTREAM_URL="https://github.com/new-coke/strikers.git"
-readonly UPSTREAM_PIN="22649cb12c112454a34217429296c95bb181af8a"
-readonly ENGINE_BRANCH="ballpad-ios"
+readonly UPSTREAM_PIN="b0e54c9a51cbfcfef7e5487feb02f843ff723d97"
+readonly ENGINE_BRANCH="ballpad-ios-v1.3"
 readonly ENGINE_DIR="${BALLPAD_ROOT}/work/native/strikers"
 readonly PORT_DIR="${ENGINE_DIR}/smstrikers-port"
 
