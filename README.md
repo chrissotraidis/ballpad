@@ -38,7 +38,7 @@ game images, extracted assets, or saves.
 
 BallPad is under active development. Expect bugs and compatibility differences
 between devices; performance, audio, and touch comfort are still being refined.
-Download [**BallPad 1.0 Preview 1 (build 2)**](https://github.com/chrissotraidis/ballpad/releases/tag/v1.0-preview.1),
+Download [**BallPad 1.0 Preview 2 (build 7)**](https://github.com/chrissotraidis/ballpad/releases/tag/v1.0-preview.2),
 join the [community on Discord](https://discord.gg/UwhfwXx4C) for updates and testing
 feedback, or [build from source](#build-from-source).
 
@@ -48,7 +48,7 @@ You must supply the supported game image yourself.
 
 ### Install the preview
 
-1. Download [BallPad-unsigned.ipa](https://github.com/chrissotraidis/ballpad/releases/download/v1.0-preview.1/BallPad-unsigned.ipa)
+1. Download [BallPad-unsigned.ipa](https://github.com/chrissotraidis/ballpad/releases/download/v1.0-preview.2/BallPad-unsigned.ipa)
    from the release. Use an iPhone or iPad running iOS/iPadOS 17 or later; the
    minimum OS setting has not been validated on every supported device.
 2. Sign and install the IPA using your preferred sideloading tool and your own
@@ -108,11 +108,13 @@ and the FPS badge, added movie/scene diagnostics for rendering reports, and kept
 imported game-data paths working when iOS relocates the app during an in-place
 update.
 
-Build 2 was installed and launched with game data on iPad Pro and iPhone 14, and
-gameplay was tested on both. Build 3's controller repair is verified in the
-Simulator against the engine's own pad read-back; it has not yet been played
-through on hardware. Simulator checks cover the front end, a live match with
-scoring and replay, memory-card screens, and focused controls/settings flows.
+Build 7 was installed in place and launched with game data on an iPad Pro; the
+imported ISO, memory-card save, and preferences matched their pre-install hashes.
+Its controller repair and live-match path passed focused Simulator checks, but
+physical controller play and extended gameplay on build 7 remain to be checked.
+Build 2 was played on iPad Pro and iPhone 14. Simulator checks cover the front
+end, a live match with scoring and replay, memory-card screens, and focused
+controls/settings flows.
 Sustained performance, multitouch behavior, and full-game validation remain work
 in progress.
 
@@ -220,7 +222,7 @@ Use an Apple Silicon Mac with Xcode 26.x or newer and its command-line tools, CM
 Ninja, Git, Python 3.10+, and ripgrep. Keep your own supported game image in
 ignored local storage. The [runbook](docs/33-native-strikers-implementation.md)
 and [dependency manifest](docs/native-strikers-dependency-manifest.json) record
-the engine and dependency pins. Preview 1 was built with Xcode 27.0; its device
+the engine and dependency pins. Preview 2 was built with Xcode 27.0; its device
 and Simulator targets retain the iOS/iPadOS 17 deployment minimum.
 
 From the repository root, bootstrap the pinned engine and dependencies, then
@@ -371,7 +373,7 @@ private runtime evidence.
 After building the device target and committing the exact app source, run:
 
 ```sh
-scripts/native/package-release.sh --out build/releases/ballpad-preview-1 --source-ref HEAD
+scripts/native/package-release.sh --out build/releases/ballpad-preview-2 --source-ref HEAD
 ```
 
 This creates an unsigned IPA, source-material archive, portable FFmpeg relink
