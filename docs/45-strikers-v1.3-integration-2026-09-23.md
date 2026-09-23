@@ -37,3 +37,10 @@ and saw the game's pause state after Start. Its controls are injected at the
 engine's control channel, so this proves the game path rather than a physical
 controller or real touch. Physical controller play and full gameplay acceptance
 remain to be checked on the new build.
+
+After build 7 was installed in place on the owner's iPad Pro, the imported ISO,
+memory-card save, game-data pointer, and preferences matched pre-install hashes;
+the save also matched after launch. The app reached the health and safety scene
+and remained running. The owner later reported that the game works and plays
+well on this iPad. This is an owner gameplay report, not a measured controller,
+audio, thermal, or full-game acceptance run.

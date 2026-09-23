@@ -110,8 +110,9 @@ update.
 
 Build 7 was installed in place and launched with game data on an iPad Pro; the
 imported ISO, memory-card save, and preferences matched their pre-install hashes.
-Its controller repair and live-match path passed focused Simulator checks, but
-physical controller play and extended gameplay on build 7 remain to be checked.
+The owner subsequently reported that the game plays well on that iPad. Its
+controller repair and live-match path passed focused Simulator checks; dedicated
+physical controller and extended gameplay checks remain to be done.
 Build 2 was played on iPad Pro and iPhone 14. Simulator checks cover the front
 end, a live match with scoring and replay, memory-card screens, and focused
 controls/settings flows.
