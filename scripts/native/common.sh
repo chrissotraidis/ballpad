@@ -10,12 +10,12 @@ BALLPAD_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly BALLPAD_ROOT
 
 # Maintained source pin. Bootstrap and provenance checks consume this exact commit.
-readonly ENGINE_URL="https://github.com/pedroea0/strikers.git"
-readonly ENGINE_PIN="9e1a9a9d0121363efb2f4a9343ffd232416dd403"
-readonly ENGINE_SOURCE_TREE="a0e22501e34186e18947c9d0f341afb01d585c17"
+readonly ENGINE_URL="https://github.com/chrissotraidis/strikers.git"
+readonly ENGINE_PIN="c4ee7189e7f9193be6ec7cedd569a17f25266136"
+readonly ENGINE_SOURCE_TREE="c64813ea6117428a345477edc543fe56e94d5f3f"
 readonly UPSTREAM_URL="https://github.com/new-coke/strikers.git"
-readonly UPSTREAM_PIN="4ba5dce1b927c3712a7b0e76100c1b2fe448fc00"
-readonly ENGINE_BRANCH="ballpad-ios-rebase"
+readonly UPSTREAM_PIN="b0e54c9a51cbfcfef7e5487feb02f843ff723d97"
+readonly ENGINE_BRANCH="ballpad-ios-v1.3"
 readonly ENGINE_DIR="${BALLPAD_ROOT}/work/native/strikers"
 readonly PORT_DIR="${ENGINE_DIR}/smstrikers-port"
 

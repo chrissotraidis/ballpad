@@ -25,7 +25,7 @@ adapts. See [full attribution](ATTRIBUTION.md) and [third-party notices](THIRD_P
 
 BallPad is the Apple app repository. Its engine changes live in the maintained
 [Strikers fork](https://github.com/chrissotraidis/strikers), built from
-`new-coke/strikers` v1.1.1 with the upstream history preserved. Builds select an
+`new-coke/strikers` v1.3.0 with the upstream history preserved. Builds select an
 exact fork commit; they do not apply a patch series. The
 [dependency manifest](docs/native-strikers-dependency-manifest.json) records the
 source relationships and exact versions. BallPad's work is the Apple integration,
@@ -62,6 +62,13 @@ when redistributing it. To verify downloaded files on macOS, put all four assets
 in one directory and run `shasum -a 256 -c SHA256SUMS` there.
 
 ## Current status
+
+Version 1.0, build 7 updates the maintained engine to upstream Strikers v1.3.0.
+It includes upstream fixes for an AI pass crash, goal replay hangs, and input lag
+with VSync. BallPad retains its own iOS controller bridge, game-data importer,
+and host pause hooks. Upstream's desktop settings app, Switch support, and
+texture-pack controls are not BallPad features. See the
+[v1.3.0 integration notes](docs/45-strikers-v1.3-integration-2026-09-23.md).
 
 Version 1.0, build 6 moves the engine pin forward ten upstream commits — including a
 crash and texture-cache rework and a goal-replay crash fix — and adds a pause the host

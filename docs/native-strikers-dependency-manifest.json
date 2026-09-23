@@ -3,14 +3,14 @@
   "generated_for": "Ballpad - Strikers iOS port (native engine)",
   "generated_on": "2026-09-16",
   "engine_pin": {
-    "repository": "https://github.com/pedroea0/strikers",
-    "revision": "9e1a9a9d0121363efb2f4a9343ffd232416dd403",
-    "version": "v1.1.1+upstream 4ba5dce + BallPad iOS/iPadOS integration",
+    "repository": "https://github.com/chrissotraidis/strikers",
+    "revision": "c4ee7189e7f9193be6ec7cedd569a17f25266136",
+    "version": "v1.3.0+upstream b0e54c9 + BallPad iOS/iPadOS integration",
     "upstream_repository": "https://github.com/new-coke/strikers",
-    "upstream_revision": "4ba5dce1b927c3712a7b0e76100c1b2fe448fc00",
-    "upstream_version": "v1.1.1",
+    "upstream_revision": "b0e54c9a51cbfcfef7e5487feb02f843ff723d97",
+    "upstream_version": "v1.3.0",
     "remote_name": "origin",
-    "development_branch": "ballpad-ios-rebase",
+    "development_branch": "ballpad-ios-v1.3",
     "local_fork": "work/native/strikers"
   },
   "notes": [
@@ -33,7 +33,7 @@
       "name": "new-coke/strikers native port",
       "kind": "engine",
       "upstream": "https://github.com/new-coke/strikers",
-      "revision": "9e1a9a9d0121363efb2f4a9343ffd232416dd403",
+      "revision": "c4ee7189e7f9193be6ec7cedd569a17f25266136",
       "license": "CC0 1.0 for the port author's own material within their rights, except where otherwise noted; reconstructed game code retains its own unsettled status",
       "license_files": [
         "README.md",
@@ -56,8 +56,8 @@
         "simulator",
         "device"
       ],
-      "maintained_repository": "https://github.com/pedroea0/strikers",
-      "upstream_revision": "4ba5dce1b927c3712a7b0e76100c1b2fe448fc00"
+      "maintained_repository": "https://github.com/chrissotraidis/strikers",
+      "upstream_revision": "b0e54c9a51cbfcfef7e5487feb02f843ff723d97"
     },
     {
       "id": "smstrikers-decomp",

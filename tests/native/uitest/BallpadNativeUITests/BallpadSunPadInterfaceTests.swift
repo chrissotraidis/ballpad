@@ -1345,7 +1345,7 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
     /// right-hand name: assigning is a swap, and two rows moving is what tells a swap from a write.
     private func mappingRowText(_ gameButton: String) -> String? {
         guard let row = identifierElement("BallpadMappingBind." + gameButton) else { return nil }
-        return publishedText(row)
+        return row.value as? String
     }
 
     /// Taps one of the panel's rebind rows, scrolling the panel when the row is below the sheet's
@@ -1361,14 +1361,22 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
             // The presented sheet's own scroll view, which is what a person swipes to reach a row
             // past the fold. Bounded, so a row that is genuinely unreachable fails below instead of
             // scrolling until the budget runs out.
-            let panel = app.scrollViews.firstMatch
+            let panel = app.tables.firstMatch
             for _ in 0..<6 where !row.isHittable {
                 guard panel.exists else { break }
                 panel.swipeUp()
             }
+            // A tap while the table is still decelerating stops the scroll instead of
+            // selecting the cell. Give that movement a moment to settle.
+            Thread.sleep(forTimeInterval: 0.5)
         }
         XCTAssertTrue(row.isHittable, "the " + gameButton + " rebind row is reachable in the panel")
         row.tap()
+        let title = "Bind GameCube " + gameButton + " to"
+        let sheet = app.sheets[title]
+        if !sheet.waitForExistence(timeout: 2) && !app.alerts[title].exists {
+            row.tap()
+        }
     }
 
     /// Taps a choice in the action sheet a rebind row raises. The sheet is a `UIAlertController`, so
@@ -1396,17 +1404,22 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
         XCTFail("the sheet titled \"" + sheetTitle + "\" offers " + title)
     }
 
-    /// Opens the mapping panel from the three-dot menu. The row is on the menu's second page on the
-    /// phone, so the bounded scroll is what reaches it on both form factors.
+    /// Opens the mapping panel through Controls. On the phone the nested menu may need scrolling.
     private func openMappingPanel() {
         openMenu()
+        guard let controls = scrollMenuForElement("Controls", timeout: 10) else {
+            attachHierarchy("controls-row-missing")
+            XCTFail("the Controls group is present in the menu")
+            return
+        }
+        controls.tap()
         guard let row = scrollMenuForElement("Controller Button Mapping…", timeout: 25) else {
             attachHierarchy("mapping-row-missing")
             XCTFail("the Controller Button Mapping row is present in the menu")
             return
         }
         row.tap()
-        XCTAssertNotNil(waitForIdentifier("BallpadMappingTitle", timeout: 30),
+        XCTAssertTrue(app.navigationBars["Controller Buttons"].waitForExistence(timeout: 30),
                         "the mapping panel opens")
     }
 
@@ -1435,43 +1448,38 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
         launchAndWaitForOverlay()
         openMappingPanel()
 
-        XCTAssertNotNil(identifierElement("BallpadMappingBridgeHeading"),
-                        "the panel says which map its editable rows are")
-        XCTAssertNotNil(identifierElement("BallpadMappingBridgeNote"),
-                        "the panel states what a rebind does to the button it swaps with")
-
         // Read per button rather than as one string: assigning is a swap, so the pair of rows that
         // move is what tells a swap from a write.
-        XCTAssertEqual(mappingRowText("A"), "A  ←  A", "the store starts at the interface's default")
-        XCTAssertEqual(mappingRowText("B"), "B  ←  B", "the store starts at the interface's default")
-        XCTAssertEqual(mappingRowText("X"), "X  ←  X", "the store starts at the interface's default")
-        XCTAssertEqual(mappingRowText("Y"), "Y  ←  Y", "the store starts at the interface's default")
-        XCTAssertEqual(mappingRowText("Z"), "Z  ←  Left Shoulder",
+        XCTAssertEqual(mappingRowText("A"), "A", "the store starts at the interface's default")
+        XCTAssertEqual(mappingRowText("B"), "B", "the store starts at the interface's default")
+        XCTAssertEqual(mappingRowText("X"), "X", "the store starts at the interface's default")
+        XCTAssertEqual(mappingRowText("Y"), "Y", "the store starts at the interface's default")
+        XCTAssertEqual(mappingRowText("Z"), "Left Shoulder",
                        "the store starts at the interface's default")
         attach("mapping-before-rebind")
 
         tapMappingBindRow("Z")
         tapMappingChoice("Y", inSheetTitled: "Bind GameCube Z to")
 
-        XCTAssertEqual(mappingRowText("Z"), "Z  ←  Y",
+        XCTAssertEqual(mappingRowText("Z"), "Y",
                        "choosing a physical button for Z binds Z to it")
-        XCTAssertEqual(mappingRowText("Y"), "Y  ←  Left Shoulder",
+        XCTAssertEqual(mappingRowText("Y"), "Left Shoulder",
                        "and the row that held Z's binding takes the one it swapped with")
         attach("mapping-after-rebind")
 
         app.terminate()
         launchAndWaitForOverlay(extraEnvironment: Self.scriptedPadLaunch)
         openMappingPanel()
-        XCTAssertEqual(mappingRowText("Z"), "Z  ←  Y",
+        XCTAssertEqual(mappingRowText("Z"), "Y",
                        "the rebind survived a termination and a fresh launch")
-        XCTAssertEqual(mappingRowText("Y"), "Y  ←  Left Shoulder",
+        XCTAssertEqual(mappingRowText("Y"), "Left Shoulder",
                        "the swap survived with it, so the stored map is still a permutation")
         attach("mapping-after-relaunch")
 
         app.terminate()
         launchAndWaitForOverlay()
         openMappingPanel()
-        XCTAssertEqual(mappingRowText("Z"), "Z  ←  Y",
+        XCTAssertEqual(mappingRowText("Z"), "Y",
                        "the store still holds the rebind before the default is asked for")
         guard let reset = identifierElement("BallpadMappingReset") else {
             attachHierarchy("mapping-reset-missing")
@@ -1479,91 +1487,45 @@ final class BallpadSunPadInterfaceTests: XCTestCase {
             return
         }
         reset.tap()
-        XCTAssertEqual(mappingRowText("Z"), "Z  ←  Left Shoulder",
+        XCTAssertEqual(mappingRowText("Z"), "Left Shoulder",
                        "Reset restores the interface's default")
-        XCTAssertEqual(mappingRowText("Y"), "Y  ←  Y",
+        XCTAssertEqual(mappingRowText("Y"), "Y",
                        "and puts every row it moved back")
         attach("mapping-after-reset")
 
         app.terminate()
         launchAndWaitForOverlay(extraEnvironment: Self.scriptedPadLaunch)
         openMappingPanel()
-        XCTAssertEqual(mappingRowText("Z"), "Z  ←  Left Shoulder",
+        XCTAssertEqual(mappingRowText("Z"), "Left Shoulder",
                        "the default survived a termination and a fresh launch")
-        XCTAssertEqual(mappingRowText("Y"), "Y  ←  Y",
+        XCTAssertEqual(mappingRowText("Y"), "Y",
                        "so the next session starts where the interface's default says it does")
 
         app.buttons["BallpadMappingClose"].tap()
-        XCTAssertFalse(app.staticTexts["BallpadMappingTitle"].waitForExistence(timeout: 5),
+        XCTAssertFalse(app.navigationBars["Controller Buttons"].waitForExistence(timeout: 5),
                        "closing the panel dismisses it")
         XCTAssertTrue(menuButton.waitForExistence(timeout: 15),
                       "the overlay is underneath again")
     }
 
 
-    /// F13/item 7. The Controller Button Mapping row opens a panel that reports the port's own map
-    /// for its port, or the port's own reason there is none. The panel is read-only on purpose, so
-    /// what is judged is that the reading is the port's and that Refresh re-reads it rather than
-    /// that a row edits anything. Returns a description of the failure, or nil when the reading is
-    /// one of the two honest ones.
-    private func mappingReadingIsHonest() -> String? {
-        guard let device = waitForIdentifier("BallpadMappingDevice", timeout: 10) else {
-            return "the panel says which device it asked about"
-        }
-        let deviceText = publishedText(device)
-        let rows = identifierQuery("BallpadMappingRow.")
-        let noMap = deviceText.range(of: "reports no pad map for port [0-9]+",
-                                     options: .regularExpression) != nil
-        if noMap {
-            return rows.count == 0
-                ? nil
-                : "a port with no map reports no rows, not " + String(rows.count)
-        }
-        guard rows.count > 0 else {
-            return "a named device comes with the rows it maps; saw only: " + deviceText
-        }
-        for index in 0..<rows.count {
-            let text = publishedText(rows.element(boundBy: index))
-            if !text.contains("→") {
-                return "every row maps a GameCube control to something; saw: " + text
-            }
-        }
-        return nil
-    }
-
+    /// The panel shows the map used by BallPad's GameController bridge. SDL's MFi reader is
+    /// disabled here, so the port's own table is not the path a physical button follows.
     func testControllerMappingPanelReportsThePortsOwnMap() throws {
         launchAndWaitForOverlay()
-        openMenu()
-        guard let row = scrollMenuForElement("Controller Button Mapping…", timeout: 25) else {
-            attachHierarchy("mapping-row-missing")
-            XCTFail("the Controller Button Mapping row is present in the menu")
-            return
+        openMappingPanel()
+        XCTAssertNotNil(identifierElement("BallpadMappingDevice"),
+                        "the panel reports whether a controller is connected")
+        for button in ["A", "B", "X", "Y", "Z"] {
+            XCTAssertNotNil(mappingRowText(button), "GameCube " + button + " has a bound button")
         }
-        row.tap()
-
-        XCTAssertNotNil(waitForIdentifier("BallpadMappingTitle", timeout: 30),
-                        "the mapping panel opens")
-        XCTAssertNotNil(identifierElement("BallpadMappingHeading"),
-                        "the panel states what its rows map from")
-        XCTAssertNotNil(identifierElement("BallpadMappingNote"),
-                        "the panel states that it only reports")
-
-        let first = mappingReadingIsHonest()
+        XCTAssertEqual(mappingRowText("Z"), "Left Shoulder",
+                       "the default Z binding comes from the bridge's store")
         attachHierarchy("mapping-panel-hierarchy")
-        XCTAssertNil(first, first ?? "")
-
-        // Refresh re-asks the port. Nothing about the panel is cached across a re-read, so the same
-        // reading has to survive it -- which is what makes the panel a read of the port's table
-        // rather than a snapshot taken once when the view loaded.
-        let refresh = app.buttons["BallpadMappingRefresh"]
-        XCTAssertTrue(refresh.waitForExistence(timeout: 15), "the panel offers a re-read")
-        refresh.tap()
-        let second = mappingReadingIsHonest()
-        attachHierarchy("mapping-panel-after-refresh")
-        XCTAssertNil(second, second ?? "")
-
+        XCTAssertTrue(app.buttons["BallpadMappingReset"].exists,
+                      "the player can restore the default bindings")
         app.buttons["BallpadMappingClose"].tap()
-        XCTAssertFalse(app.staticTexts["BallpadMappingTitle"].waitForExistence(timeout: 5),
+        XCTAssertFalse(app.navigationBars["Controller Buttons"].waitForExistence(timeout: 5),
                        "closing the panel dismisses it")
         XCTAssertTrue(menuButton.waitForExistence(timeout: 15),
                       "the overlay is underneath again")

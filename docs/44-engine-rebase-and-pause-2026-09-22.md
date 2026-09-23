@@ -1,5 +1,9 @@
 # Rebasing the engine, and a pause the host can ask for — 2026-09-22
 
+This records build 6's PR state. Build 7 republished and rebased the engine
+onto upstream v1.3.0; the current pin and verification are in
+[the v1.3.0 integration notes](45-strikers-v1.3-integration-2026-09-23.md).
+
 Three things, and the third is the one that changed a claim made in doc 43.
 
 ## The pin moved forward ten commits
