@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "id": "ballpad",
+  "name": "BallPad",
+  "game": "Super Mario Strikers (GameCube) via the strikers native source port",
+  "kind": "decomp-patches",
+  "status": "draft-untested",
+  "inputs": [
+    {
+      "type": "gamecube-disc",
+      "formats": [
+        "iso"
+      ],
+      "when": "in-app",
+      "description": "Your own supported disc image, imported in the app. The build does not read it."
+    }
+  ],
+  "targets": {
+    "ios": {
+      "hosts": {
+        "macos-arm64": "experimental"
+      },
+      "output": "ipa",
+      "check": "ipa",
+      "steps": [
+        {
+          "stage": "dependencies",
+          "command": [
+            "/bin/bash",
+            "{repo}/scripts/native/bootstrap.sh",
+            "--platform",
+            "device"
+          ]
+        },
+        {
+          "stage": "compile",
+          "command": [
+            "/bin/bash",
+            "{repo}/scripts/native/build.sh",
+            "--platform",
+            "device"
+          ]
+        },
+        {
+          "stage": "package",
+          "command": [
+            "/bin/bash",
+            "{repo}/scripts/native/package-release.sh",
+            "--out",
+            "{work}/release",
+            "--source-ref",
+            "HEAD"
+          ]
+        },
+        {
+          "stage": "output",
+          "command": [
+            "/bin/cp",
+            "{work}/release/BallPad-unsigned.ipa",
+            "{output}"
+          ]
+        }
+      ]
+    },
+    "macos": {
+      "hosts": {
+        "macos-arm64": "planned"
+      }
+    }
+  },
+  "requirements": {
+    "disk_gb": 10,
+    "tools": [
+      {
+        "name": "git",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "cmake",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "ninja",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "python3",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "xcodebuild",
+        "version_args": [
+          "-version"
+        ],
+        "note": "Install Xcode and its iOS platform"
+      }
+    ]
+  },
+  "publication": {
+    "public_binaries": false,
+    "reason": "The app is compiled from the strikers decompilation port; public releases are source only."
+  }
+}
