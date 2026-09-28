@@ -36,11 +36,7 @@ game images, extracted assets, or saves.
 
 ## Experimental preview
 
-BallPad is under active development. Expect bugs and compatibility differences
-between devices; performance, audio, and touch comfort are still being refined.
-Download [**BallPad 1.0 Preview 2 (build 7)**](https://github.com/chrissotraidis/ballpad/releases/tag/v1.0-preview.2),
-join the [community on Discord](https://discord.gg/UwhfwXx4C) for updates and testing
-feedback, or [build from source](#build-from-source).
+Previous builds have been retired; a new version is in progress.
 
 Installing on iPhone or iPad requires signing with your own Apple account. The
 release IPA is unsigned; it is not a TestFlight or App Store build.
@@ -48,13 +44,7 @@ You must supply the supported game image yourself.
 
 ### Install the preview
 
-1. Download [BallPad-unsigned.ipa](https://github.com/chrissotraidis/ballpad/releases/download/v1.0-preview.2/BallPad-unsigned.ipa)
-   from the release. Use an iPhone or iPad running iOS/iPadOS 17 or later; the
-   minimum OS setting has not been validated on every supported device.
-2. Sign and install the IPA using your preferred sideloading tool and your own
-   Apple account. For an update, keep the same signing account and application
-   identity, export your memory card first, and install over the existing app.
-3. Open BallPad and [import your supported ISO or GCM](#first-launch-and-game-data).
+Previous builds have been retired; a new version is in progress.
 
 The release also includes `BallPad-sources.tar.gz`, `BallPad-FFmpeg-relink.tar.gz`,
 and `SHA256SUMS`. Keep these matching source and relinking materials with the IPA
