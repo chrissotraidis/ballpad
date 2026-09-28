@@ -4,7 +4,7 @@
   "name": "BallPad",
   "game": "Super Mario Strikers (GameCube) via the strikers native source port",
   "kind": "decomp-patches",
-  "status": "draft-untested",
+  "status": "experimental",
   "inputs": [
     {
       "type": "gamecube-disc",
