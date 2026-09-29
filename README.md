@@ -36,20 +36,15 @@ game images, extracted assets, or saves.
 
 ## Experimental preview
 
-Previous builds have been retired; a new version is in progress.
-
-Installing on iPhone or iPad requires signing with your own Apple account. The
-release IPA is unsigned; it is not a TestFlight or App Store build.
-You must supply the supported game image yourself.
-
-### Install the preview
-
-Previous builds have been retired; a new version is in progress.
-
-The release also includes `BallPad-sources.tar.gz`, `BallPad-FFmpeg-relink.tar.gz`,
-and `SHA256SUMS`. Keep these matching source and relinking materials with the IPA
-when redistributing it. To verify downloaded files on macOS, put all four assets
-in one directory and run `shasum -a 256 -c SHA256SUMS` there.
+Releases publish no app: BallPad is compiled from its decompilation, so you make
+your own. On an Apple Silicon Mac with Xcode, CMake, Ninja and ripgrep
+(`brew install cmake ninja ripgrep`), download
+[PadForge](https://github.com/chrissotraidis/padforge/releases/latest), unzip it,
+double-click `PadForge.command` and choose BallPad. PadForge builds the app from
+this repository's latest release and saves an unsigned IPA in the folder you
+choose. Install it with AltStore Classic, SideStore or Sideloadly (signing with
+your own Apple account), then import your own supported game image in the app
+(see [First launch and game data](#first-launch-and-game-data)).
 
 ## Current status
 
