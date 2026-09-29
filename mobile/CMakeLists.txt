@@ -259,8 +259,11 @@ target_link_libraries(strikers PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,ballpad_hos
 # equivalent there, and generating it means the values are visible where they are set. The
 # template is configured with @ONLY, so the leftover ${...} that CMake's bundle step would look
 # for is absent and the file it copies is exactly the file written here.
-set(BALLPAD_VERSION "1.0")
-set(BALLPAD_BUILD_VERSION "7")
+# One version for the app, its release and PadForge: version.json.
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../version.json" BALLPAD_VERSION_JSON)
+string(JSON BALLPAD_VERSION GET "${BALLPAD_VERSION_JSON}" version)
+string(JSON BALLPAD_BUILD_VERSION GET "${BALLPAD_VERSION_JSON}" build)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../version.json")
 set(BALLPAD_MIN_OS "${CMAKE_OSX_DEPLOYMENT_TARGET}")
 set(BALLPAD_COPYRIGHT
     "Unofficial project. Not affiliated with or endorsed by Nintendo or Next Level Games. "
