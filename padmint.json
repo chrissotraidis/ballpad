@@ -47,7 +47,7 @@
             "/bin/bash",
             "{repo}/scripts/native/package-release.sh",
             "--out",
-            "{work}/release",
+            "{output}.release",
             "--source-ref",
             "HEAD"
           ]
@@ -56,7 +56,7 @@
           "stage": "output",
           "command": [
             "/bin/cp",
-            "{work}/release/BallPad-unsigned.ipa",
+            "{output}.release/BallPad-unsigned.ipa",
             "{output}"
           ]
         }
