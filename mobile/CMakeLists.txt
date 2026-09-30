@@ -259,7 +259,7 @@ target_link_libraries(strikers PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,ballpad_hos
 # equivalent there, and generating it means the values are visible where they are set. The
 # template is configured with @ONLY, so the leftover ${...} that CMake's bundle step would look
 # for is absent and the file it copies is exactly the file written here.
-# One version for the app, its release and PadForge: version.json.
+# One version for the app, its release and PadMint: version.json.
 file(READ "${CMAKE_CURRENT_LIST_DIR}/../version.json" BALLPAD_VERSION_JSON)
 string(JSON BALLPAD_VERSION GET "${BALLPAD_VERSION_JSON}" version)
 string(JSON BALLPAD_BUILD_VERSION GET "${BALLPAD_VERSION_JSON}" build)
