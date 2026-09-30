@@ -41,8 +41,8 @@ your own. On an Apple Silicon Mac with Xcode, CMake, Ninja and ripgrep
 (`brew install cmake ninja ripgrep`), download
 [PadMint](https://github.com/chrissotraidis/padmint/releases/latest), unzip it,
 double-click `PadMint.command` and choose BallPad. PadMint builds the app from
-this repository's latest release and saves an unsigned IPA in the folder you
-choose. Install it with AltStore Classic, SideStore or Sideloadly (signing with
+this repository's latest release and saves an unsigned IPA in your Downloads
+folder. Install it with AltStore Classic, SideStore or Sideloadly (signing with
 your own Apple account), then import your own supported game image in the app
 (see [First launch and game data](#first-launch-and-game-data)).
 
