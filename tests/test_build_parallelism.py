@@ -122,13 +122,21 @@ class BuildParallelismTests(unittest.TestCase):
     def test_manual_macos_build_preserves_host_count(self):
         self.assert_build("macos", None, "16")
 
+    def test_failed_source_check_stops_before_cmake(self):
+        self.prepare_build("device")
+        (self.native / "verify-clean.sh").write_text('#!/bin/sh\nexit 19\n')
+        result = self.run_bash('/bin/bash "' + str(self.native / "build.sh") +
+                               '" --platform device --no-bootstrap', "2")
+        self.assertEqual(result.returncode, 19, result.stdout + result.stderr)
+        self.assertFalse(any(line.startswith("cmake ") for line in self.calls.read_text().splitlines()))
+
     def test_ffmpeg_make_forwards_the_resolved_limit(self):
         source = (self.native / "bootstrap.sh").read_text()
         function = source[source.index("prepare_ffmpeg() {"):source.index("# Dawn, from")]
+        assignment = next(line for line in source.splitlines() if line.startswith("JOBS="))
         # Source the actual shared helpers and actual FFmpeg function, but stub
         # downloads, archive extraction, SDK/compiler and make in this scratch root.
-        shell = 'source "' + str(self.native / "common.sh") + '"\n' + function + r'''
-JOBS=2
+        shell = 'source "' + str(self.native / "common.sh") + '"\n' + assignment + '\n' + function + r'''
 platform_sysroot() { echo /fixture-sdk; }
 sha256_of() { echo "$FFMPEG_SHA256"; }
 curl() { :; }
