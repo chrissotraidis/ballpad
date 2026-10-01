@@ -102,6 +102,18 @@ require_cmd() {
     command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
 }
 
+# PadMint supplies this limit. Manual builds retain their existing CPU default.
+build_jobs() {
+    if [ -n "${CMAKE_BUILD_PARALLEL_LEVEL:-}" ]; then
+        case "$CMAKE_BUILD_PARALLEL_LEVEL" in
+            *[!0-9]*|0*) die "CMAKE_BUILD_PARALLEL_LEVEL must be a positive integer" ;;
+        esac
+        printf '%s\n' "$CMAKE_BUILD_PARALLEL_LEVEL"
+    else
+        sysctl -n hw.ncpu
+    fi
+}
+
 # Run a command with its output both shown and appended to a phase log, so a
 # proof bundle and the terminal agree.
 run_logged() {
