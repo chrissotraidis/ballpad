@@ -81,13 +81,18 @@
         "name": "cmake",
         "version_args": [
           "--version"
-        ]
+        ],
+        "player": true,
+        "min_version": "3.25",
+        "note": "Install CMake 3.25 or newer with Homebrew: brew install cmake"
       },
       {
         "name": "ninja",
         "version_args": [
           "--version"
-        ]
+        ],
+        "player": true,
+        "note": "Install Ninja with Homebrew: brew install ninja"
       },
       {
         "name": "python3",
