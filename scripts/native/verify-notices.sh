@@ -62,7 +62,7 @@ fi
 if [ -z "$BUNDLE" ] || [ ! -d "$BUNDLE" ]; then
     BUNDLE="$(platform_build_dir "$PLATFORM")/BallpadStrikers.app"
 fi
-if [ ! -d "$BUNDLE" ]; then
+if [ ! -d "$BUNDLE" ] && [ -d "$(platform_build_dir "$PLATFORM")" ]; then
     BUNDLE="$(find "$(platform_build_dir "$PLATFORM")" -maxdepth 3 -type d -name 'BallpadStrikers.app' -print -quit 2>/dev/null)"
 fi
 

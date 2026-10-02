@@ -30,6 +30,7 @@ if [ "$PLATFORMS" = "all" ]; then
     PLATFORMS="macos simulator device"
 fi
 
+JOBS="$(build_jobs)"
 log "Ballpad native bootstrap"
 require_toolchain
 printf '    cmake   %s\n' "$(cmake --version | head -1)"
@@ -165,7 +166,7 @@ prepare_ffmpeg() {
         tail -n 30 "${work}/configure.log" >&2
         die "ffmpeg configure failed for $platform"
     }
-    ( cd "${work}/ffmpeg-${FFMPEG_VERSION}" && make -j"$(sysctl -n hw.ncpu)" \
+    ( cd "${work}/ffmpeg-${FFMPEG_VERSION}" && make -j"$JOBS" \
         > "${work}/make.log" 2>&1 ) || {
         tail -n 30 "${work}/make.log" >&2
         die "ffmpeg make failed for $platform"

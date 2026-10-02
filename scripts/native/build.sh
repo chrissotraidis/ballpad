@@ -34,15 +34,13 @@ done
 
 [ -n "$PLATFORM" ] || die "--platform is required (macos|simulator|device)"
 
-require_toolchain
-[ -d "${PORT_DIR}" ] || die "engine not checked out; run scripts/native/bootstrap.sh first"
-
 case "$PLATFORM" in
-    macos)     JOBS="$(sysctl -n hw.ncpu)" ;;
-    simulator) JOBS="$(sysctl -n hw.ncpu)" ;;
-    device)    JOBS="$(sysctl -n hw.ncpu)" ;;
+    macos|simulator|device) JOBS="$(build_jobs)" ;;
     *) die "unknown platform: $PLATFORM" ;;
 esac
+
+require_toolchain
+[ -d "${PORT_DIR}" ] || die "engine not checked out; run scripts/native/bootstrap.sh first"
 
 BUILD_DIR="$(platform_build_dir "$PLATFORM")"
 LOG="${LOG_DIR}/build-${PLATFORM}-${CONFIGURATION}.log"
