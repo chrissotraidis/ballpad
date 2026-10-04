@@ -9,6 +9,8 @@
   <img alt="Experimental preview" src="https://img.shields.io/badge/preview-experimental-FFD60A">
   <img alt="Game data not included" src="https://img.shields.io/badge/game%20data-not%20included-FF453A">
   <a href="https://discord.gg/UwhfwXx4C"><img alt="Join the BallPad Discord" src="https://img.shields.io/badge/Discord-BallPad%20community-5865F2?logo=discord&amp;logoColor=white"></a>
+  <a href="https://github.com/chrissotraidis/padmint"><img alt="Build BallPad with PadMint" src="https://img.shields.io/badge/PadMint-build%20your%20own-3EB489"></a>
+  <a href="https://discord.gg/xwHfUD2bxW"><img alt="Join the BallPad Discord" src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&amp;logoColor=white"></a>
 </p>
 
 **BallPad is an iOS/iPadOS port of [new-coke/strikers](https://github.com/new-coke/strikers).**
@@ -33,6 +35,13 @@ touch adaptation, importer, mobile fixes, and build/test tooling.
 
 You supply your own supported disc image. BallPad does not download or include
 game images, extracted assets, or saves.
+
+> [!NOTE]
+> **AI disclosure:** BallPad uses substantial AI assistance for code, tests,
+> documentation, debugging and maintenance. Some support replies and maintenance
+> tasks are automated. There is no audited percentage of AI-generated code.
+> Build, test and device records describe what was checked. This disclosure
+> concerns BallPad's workflow, not the authorship of its upstream projects.
 
 ## Experimental preview
 
@@ -328,6 +337,16 @@ each check establishes. Passing checks does not prove full-game or device readin
 | `docs/` | Runbook, evidence, dependency manifest, and release readiness |
 | `app/`, `host/` | Superseded static-recompilation experiment |
 | `work/`, `build/`, `ref/`, `.local-assets/` | Ignored local sources, builds, evidence, and private game data |
+
+## Community and support
+
+[Join the Discord](https://discord.gg/xwHfUD2bxW) for help and news. It is one
+community for BallPad and its sibling projects, such as KartPad, BlueWake and
+MeleePad: ask about setup, building with PadMint, and installing, share how it
+runs on your device, and hear about new releases first.
+
+Found a bug? [Open an issue](https://github.com/chrissotraidis/ballpad/issues)
+with your device, its OS version, and the steps that led to it.
 
 ## Credits, legal and contributing
 
