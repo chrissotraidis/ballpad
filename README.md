@@ -385,3 +385,12 @@ This creates an unsigned IPA, source-material archive, portable FFmpeg relink
 archive, and `SHA256SUMS`. Keep those materials together when distributing a
 build. The packager verifies the engine pin and exercises relinking with the
 recipient’s Xcode paths. It does not upload anything or include game data.
+
+## Legal
+
+BallPad is an unofficial, fan-made project. It is not affiliated with, endorsed
+by, or sponsored by Nintendo. Super Mario Strikers and related names and marks
+are trademarks of Nintendo (and their respective owners). This repository
+contains no game data, disc images, or extracted assets. To use it, you need
+your own legally obtained copy of the game, and you build it yourself on your
+own machine. Please don't share game files or builds made from them.
