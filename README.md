@@ -55,6 +55,10 @@ folder. Install it with AltStore Classic, SideStore or Sideloadly (signing with
 your own Apple account), then import your own supported game image in the app
 (see [First launch and game data](#first-launch-and-game-data)).
 
+**No Mac?** You can build the iPhone and iPad app on GitHub's free Mac from Windows,
+Linux or any computer with a web browser: follow
+[PadMint's steps](https://github.com/chrissotraidis/padmint#no-mac-build-on-githubs-mac).
+
 ## Current status
 
 Version 1.0, build 7 updates the maintained engine to upstream Strikers v1.3.0.
