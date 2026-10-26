@@ -61,6 +61,7 @@ float PortCameraAspectBlend(void);
 #import "SunPadSettings.h"
 
 #import "BallpadControllerMapping.h"
+#import "BallpadControllerPressFilter.h"
 #import "BallpadCredits.h"
 #import "BallpadGameData.h"
 #import "BallpadLog.h"
@@ -3407,6 +3408,18 @@ static UIWindow *BallpadWindowForSDLWindow(void *sdlWindow)
 // controls out for a window nobody is looking at -- the game is visible, the menu button is not --
 // and nothing in the renderer would report it, which is why the resume path asks this question
 // rather than assuming.
+namespace {
+bool BallpadHostUIIsPresenting(UIWindow *window);
+}
+
+static void BallpadAttachControllerPressFilter(UIView *view)
+{
+    __weak UIView *weakView = view;
+    BallpadInstallControllerPressFilter(view, ^BOOL {
+        return BallpadHostUIIsPresenting(weakView.window);
+    });
+}
+
 static void BallpadReattachOverlay(NSString *reason)
 {
     if (s_overlay == nil)
@@ -3422,6 +3435,7 @@ static void BallpadReattachOverlay(NSString *reason)
     }
 
     UIView *container = window.rootViewController.view ?: (UIView *)window;
+    BallpadAttachControllerPressFilter(container);
     BOOL moved = (s_overlay.superview != container);
     if (moved)
     {
@@ -3592,7 +3606,9 @@ static void BallpadLogConsumptionIfChanged(void)
 // step that made it rather than on the same one.
 static void BallpadLogControllerIfChanged(void)
 {
-    static const int s_enabled = (getenv("STRIKERS_LOG_CONTROLLER") != NULL) ? 1 : 0;
+    static const BOOL s_verbose = getenv("STRIKERS_LOG_CONTROLLER") != NULL;
+    static const BOOL s_enabled = s_verbose
+        || [NSBundle.mainBundle.infoDictionary[@"BallpadControllerInputDiagnostics"] boolValue];
     if (!s_enabled)
         return;
 
@@ -3612,11 +3628,17 @@ static void BallpadLogControllerIfChanged(void)
 
     const BOOL changed =
         havePublished != s_ctrlHavePublished
-        || (havePublished && memcmp(&published, &s_ctrlLastPublished, sizeof(published)) != 0)
+        || (havePublished && (s_verbose
+            ? memcmp(&published, &s_ctrlLastPublished, sizeof(published)) != 0
+            : published.buttons != s_ctrlLastPublished.buttons))
         || s_haveOffer != s_ctrlHaveOffer
-        || (s_haveOffer && memcmp(&s_offerThis, &s_ctrlLastOffer, sizeof(s_offerThis)) != 0)
+        || (s_haveOffer && (s_verbose
+            ? memcmp(&s_offerThis, &s_ctrlLastOffer, sizeof(s_offerThis)) != 0
+            : s_offerThis.buttons != s_ctrlLastOffer.buttons))
         || haveEngine != s_ctrlHaveEngine
-        || (haveEngine && memcmp(&engine, &s_ctrlLastEngine, sizeof(engine)) != 0);
+        || (haveEngine && (s_verbose
+            ? memcmp(&engine, &s_ctrlLastEngine, sizeof(engine)) != 0
+            : engine.buttons != s_ctrlLastEngine.buttons || engine.err != s_ctrlLastEngine.err));
     if (!changed)
         return;
 
@@ -3768,6 +3790,7 @@ extern "C" void PortHostUIStart(void *sdlWindow)
         }
 
         UIView *host = window.rootViewController.view ?: window;
+        BallpadAttachControllerPressFilter(host);
         // BallpadGameOverlay, not the vendored class: the only difference is the menu, and
         // everything else -- layout, hit-testing, the rows, the alerts -- is the vendored code.
         s_overlay = [[BallpadGameOverlay alloc] initWithFrame:host.bounds];

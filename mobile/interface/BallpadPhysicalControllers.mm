@@ -301,6 +301,7 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
   std::mutex _stateMutex;
   std::array<SunPadInputState, SunPadControllerSlots::kMaxPlayers> _states;
   BOOL _started;
+  NSUInteger _inputLogCount;
 }
 
 + (instancetype)sharedControllers {
@@ -403,9 +404,17 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
   if (slot < 0 || slot >= static_cast<int>(SunPadControllerSlots::kMaxPlayers)) return;
   const SunPadInputState state =
       BallpadAdaptPhysicalControllerSample(sample, [SunPadControllerMappingStore mapping]);
+  BOOL buttonsChanged;
   {
     std::scoped_lock lock(_stateMutex);
+    buttonsChanged = _states[static_cast<std::size_t>(slot)].buttons != state.buttons;
     _states[static_cast<std::size_t>(slot)] = state;
+  }
+  if (buttonsChanged && _inputLogCount < 128 &&
+      [NSBundle.mainBundle.infoDictionary[@"BallpadControllerInputDiagnostics"] boolValue]) {
+    ++_inputLogCount;
+    BallpadLog(@"controller: raw slot %d face 0x%02x menu %d mapped 0x%04x",
+               slot + 1, (unsigned)sample.faceButtons, sample.menu, (unsigned)state.buttons);
   }
   // Only the first slot is offered to the game, and one slot's worth of the mixer is what the port
   // reads: PortHostUIPollPad merges it into port 0 once per frame, and port 0 is the only port the
