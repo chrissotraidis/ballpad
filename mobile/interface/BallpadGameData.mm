@@ -31,6 +31,7 @@
 #include "port/hostui.h"
 
 #include "BallpadGameData.h"
+#include "BallpadImportFiles.h"
 #include "BallpadLog.h"
 #include "SunPadDiagnostics.h"
 
@@ -479,13 +480,19 @@ static BOOL BallpadStageAndActivate(NSURL* source, NSString** refusal)
 // Staging off the main thread and reporting on it: the copy is a few hundred megabytes for an
 // image and the validation reads the whole file table, so neither belongs on the thread the game
 // frame is being drawn on.
-static void BallpadStagePickedURL(NSURL* url, void (^report)(NSURL*, NSString*))
+static void BallpadStagePickedURL(NSURL* url, BOOL pickerCopy, void (^report)(NSURL*, NSString*))
 {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool
         {
             NSString* refusal = nil;
             BOOL staged = BallpadStageAndActivate(url, &refusal);
+            if (pickerCopy)
+            {
+                NSURL* documents = [NSFileManager.defaultManager URLForDirectory:NSDocumentDirectory
+                    inDomain:NSUserDomainMask appropriateForURL:nil create:NO error:NULL];
+                BallpadRemovePickerCopy(url, documents, [NSURL fileURLWithPath:NSTemporaryDirectory()], NSBundle.mainBundle.bundleIdentifier);
+            }
             dispatch_async(dispatch_get_main_queue(), ^{
                 report(staged ? url : nil, staged ? nil : refusal);
             });
@@ -836,40 +843,10 @@ static UIViewController* BallpadPresentingViewController(void)
 // list themselves as candidates.
 static NSArray<NSURL*>* BallpadImagesInDocuments(void)
 {
-    NSFileManager* fileManager = NSFileManager.defaultManager;
-    NSURL* documents = [fileManager URLForDirectory:NSDocumentDirectory
-                                           inDomain:NSUserDomainMask
-                                  appropriateForURL:nil
-                                             create:NO
-                                              error:NULL];
-    if (documents == nil)
-        return @[];
-
-    NSString* storePath = BallpadStringFromC(BallpadGameDataStorePath());
-    NSMutableArray<NSURL*>* images = [NSMutableArray array];
-    NSDirectoryEnumerator<NSURL*>* enumerator =
-        [fileManager enumeratorAtURL:documents
-          includingPropertiesForKeys:@[ NSURLIsRegularFileKey ]
-                             options:NSDirectoryEnumerationSkipsHiddenFiles
-                        errorHandler:nil];
-
-    for (NSURL* url in enumerator)
-    {
-        NSString* extension = url.pathExtension.lowercaseString;
-        if (![extension isEqualToString:@"iso"] && ![extension isEqualToString:@"gcm"])
-            continue;
-        if ([url.path hasPrefix:storePath])
-            continue;
-        NSNumber* isRegularFile = nil;
-        if (![url getResourceValue:&isRegularFile forKey:NSURLIsRegularFileKey error:NULL] ||
-            !isRegularFile.boolValue)
-            continue;
-        [images addObject:url];
-    }
-
-    return [images sortedArrayUsingComparator:^NSComparisonResult(NSURL* a, NSURL* b) {
-        return [a.lastPathComponent localizedStandardCompare:b.lastPathComponent];
-    }];
+    NSURL* documents = [NSFileManager.defaultManager URLForDirectory:NSDocumentDirectory
+        inDomain:NSUserDomainMask appropriateForURL:nil create:NO error:NULL];
+    return BallpadImportImagesInDocuments(documents,
+        [NSURL fileURLWithPath:BallpadStringFromC(BallpadGameDataStorePath())]);
 }
 
 static void BallpadRunFolderImport(UIViewController* presenter,
@@ -889,7 +866,7 @@ static void BallpadRunFolderImport(UIViewController* presenter,
     }
     if (images.count == 1)
     {
-        BallpadStagePickedURL(images.firstObject, completion);
+        BallpadStagePickedURL(images.firstObject, NO, completion);
         return;
     }
 
@@ -904,7 +881,7 @@ static void BallpadRunFolderImport(UIViewController* presenter,
                                                    style:UIAlertActionStyleDefault
                                                  handler:^(UIAlertAction* action) {
             (void)action;
-            BallpadStagePickedURL(image, completion);
+            BallpadStagePickedURL(image, NO, completion);
         }]];
     }
     [choice addAction:[UIAlertAction actionWithTitle:@"Cancel"
@@ -930,7 +907,7 @@ static void BallpadGameDataRunImport(UIViewController* presenter,
             apply(nil, refusal);
             return;
         }
-        BallpadStagePickedURL(url, apply);
+        BallpadStagePickedURL(url, YES, apply);
     }];
 }
 
@@ -1076,8 +1053,8 @@ extern "C" int PortHostUIRunGameDataImport(const char* title, const char* messag
         NSString* heading = @"Add your game";
         NSString* body = [NSString stringWithFormat:
             @"%@ plays Super Mario Strikers from your own disc.\n\n"
-            @"Choose the .iso or .gcm disc image you have, or put the extracted disc's files "
-            @"folder in %@'s folder in Files and import it. Nothing is bundled with this app, "
+            @"Choose your .iso or .gcm disc image, or copy that image into %@'s "
+            @"folder in Files and import it. Nothing is bundled with this app, "
             @"and nothing is uploaded anywhere.",
             BallpadAppDisplayName(), BallpadAppDisplayName()];
         // The quiet line under the copy is the one fact a first-run screen can add that the player

@@ -283,6 +283,11 @@ Do not commit `build/`, `work/`, `ref/`, or `.local-assets/`.
 3. Keep BallPad open while it copies and validates the image.
 4. Choose **Start the Game** when the data is ready.
 
+The folder route takes an ISO or GCM image, not an extracted `files` directory.
+BallPad ignores its retained installation and picker Inbox when listing images
+you placed in Files. Temporary picker copies are removed after each import
+attempt; manually supplied originals and existing game data are preserved.
+
 Wrong game codes, revisions, headers, and sizes are rejected without replacing
 existing valid data. Use **Game Data** in the menu to manage the image later;
 memory-card import/export is separate. Do not erase the app container to fix a
