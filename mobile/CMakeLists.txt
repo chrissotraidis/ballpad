@@ -224,6 +224,7 @@ add_library(ballpad_hostui STATIC
   interface/BallpadLog.mm
   interface/BallpadCredits.mm
   interface/BallpadPhysicalControllers.mm
+  interface/BallpadControllerPressFilter.mm
   interface/BallpadControllerMapping.mm)
 set_target_properties(ballpad_hostui PROPERTIES
   CXX_STANDARD 17
