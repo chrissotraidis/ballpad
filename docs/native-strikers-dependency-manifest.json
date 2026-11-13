@@ -138,7 +138,7 @@
       "license_files": [
         "LICENSE.txt (in the pinned SDL3 source tree)"
       ],
-      "local_modifications": "none",
+      "local_modifications": "UIKit scene geometry shared with the other SDL3 Pad ports (scripts/native/SDL3UIKitSceneGeometry.cmake, applied by bootstrap.sh): SDL runs only in the application scene it started in, leaves an external display's scene to the system, adopts a replacement scene, and takes orientation from that scene's effectiveGeometry.",
       "notices": [
         "sdl3/LICENSE.txt"
       ],

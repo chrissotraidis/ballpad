@@ -90,13 +90,22 @@ sdl3_src() {
         tar -xzf "$tgz" -C "${DEPS_ROOT}/src"
         mv "${DEPS_ROOT}/src/SDL-${SDL3_TAG}" "$dest"
     fi
+    # UIKit scene geometry shared with the other SDL3 Pad ports (exact,
+    # idempotent edits; an already patched tree is left alone).
+    cmake -DSDL_SOURCE_DIR="$dest" -P "${SDL3_SCENE_PATCH}" >&2
     echo "$dest"
 }
 
 prepare_sdl3() {
     local platform="$1"
     local out="${DEPS_ROOT}/sdl3/${platform}"
-    if [ -f "${out}/lib/libSDL3.a" ]; then
+    # The stamp ties a cached iPhone/iPad build to the SDL tag and the UIKit
+    # scene patch, so a library built before either changed is rebuilt. macOS
+    # compiles none of the patched UIKit code, so its cache is reused as before.
+    local stamp="${out}/.ballpad-sdl3"
+    local want; want="${SDL3_TAG} $(sha256_of "${SDL3_SCENE_PATCH}")"
+    if [ -f "${out}/lib/libSDL3.a" ] && { [ "$platform" = macos ] ||
+            { [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$want" ]; }; }; then
         log "SDL3 already built for $platform"
         return 0
     fi
@@ -121,6 +130,7 @@ prepare_sdl3() {
     run_logged "${LOG_DIR}/bootstrap-sdl3-${platform}.log" \
         cmake --build "${out}" --target install
     [ -f "${out}/lib/libSDL3.a" ] || die "SDL3 static library was not produced for $platform"
+    printf '%s' "$want" > "$stamp"
 }
 
 # Static, THP-only FFmpeg. The port's own THP demuxer and DSP-ADPCM audio
