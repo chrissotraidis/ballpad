@@ -72,6 +72,7 @@ DAWN_CACHE_ARGS=(
     "-DTINT_BUILD_IR_BINARY=OFF"
 )
 readonly SDL3_TAG="release-3.4.10"
+readonly SDL3_SCENE_PATCH="${BALLPAD_ROOT}/scripts/native/SDL3UIKitSceneGeometry.cmake"
 readonly FFMPEG_VERSION="9.0.1"
 readonly FFMPEG_URL="https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
 readonly FFMPEG_SHA256="cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635"
