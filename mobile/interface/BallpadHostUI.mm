@@ -65,6 +65,7 @@ float PortCameraAspectBlend(void);
 #import "BallpadGameData.h"
 #import "BallpadLog.h"
 #import "BallpadPhysicalControllers.h"
+#import "BallpadTouchControlsVisibility.h"
 
 // SunPad's button mask and the port's are the same twelve bits today. This is a translation rather
 // than a cast on purpose: the compiler checks these names, so if either project's layout moves the
@@ -1556,6 +1557,16 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
 - (void)resetLayout;
 @end
 
+// The vendored controller-visibility and input entry points. Auto-hide is decided here from the
+// controller bridge's slot table; the vendored rule counts every extended gamepad, including one
+// that belongs to a later slot the game never reads.
+@interface SunPadGameOverlay (BallpadVisibilityHooks)
+- (void)applyControllerVisibility;
+- (void)clearTouchInput;
+- (void)buttonDown:(UIButton *)button;
+- (void)rPressureChanged:(uint8_t)pressure fullPress:(BOOL)fullPress;
+@end
+
 // A full sheet keeps the report readable when the iPad keyboard is visible.
 @interface BallpadReportViewController : UIViewController <UITextFieldDelegate, UITextViewDelegate>
 @property(nonatomic, strong) UIScrollView *formScroll;
@@ -1689,6 +1700,8 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
 
 @interface BallpadGameOverlay : SunPadGameOverlay
 @property(nonatomic, strong) UILongPressGestureRecognizer *ballpadRightPress;
+// What -setTouchControlsHidden:animated: last applied; the vendored flag is private.
+@property(nonatomic) BOOL ballpadTouchControlsHidden;
 // The right shoulder's own press and appearance, wired and applied from -layoutSubviews; the flags
 // they read and set are above, next to the reason they exist.
 - (void)ballpadRightShoulderGesture:(UILongPressGestureRecognizer *)gesture;
@@ -1747,8 +1760,10 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
             [other addObject:element];
     }
     [controls addObject:[self ballpadHideMenuButtonAction]];
+    [controls addObject:[self ballpadAutoHideTouchControlsAction]];
     NSMutableArray<UIMenuElement *> *children = [NSMutableArray arrayWithArray:@[
         [self ballpadMenuOpenNotice],
+        [self ballpadShowTouchControlsElement],
         [UIMenu menuWithTitle:@"Display" children:display],
         [UIMenu menuWithTitle:@"Controls" children:controls],
         [self ballpadExperimentalMenu]]];
@@ -1777,6 +1792,123 @@ static NSArray<UIView *> *BallpadControlsForHiddenIdentifier(UIView *overlay, NS
     action.subtitle = @"Two-finger tap anywhere to bring it back";
     action.state = hidden ? UIMenuElementStateOn : UIMenuElementStateOff;
     return action;
+}
+
+#pragma mark - Touch controls and a controller
+
+// Asked each time the menu opens, so the row is there exactly while the controls are hidden.
+- (UIDeferredMenuElement *)ballpadShowTouchControlsElement
+{
+    __weak BallpadGameOverlay *weakSelf = self;
+    return [UIDeferredMenuElement elementWithUncachedProvider:
+        ^(void (^completion)(NSArray<UIMenuElement *> *elements)) {
+            if (!weakSelf.ballpadTouchControlsHidden)
+            {
+                completion(@[]);
+                return;
+            }
+            completion(@[[UIAction actionWithTitle:@"Show Touch Controls"
+                                             image:[UIImage systemImageNamed:@"hand.tap"]
+                                        identifier:nil
+                                           handler:^(__kindof UIAction *selected) {
+                (void)selected;
+                [weakSelf ballpadSetAutoHideTouchControls:NO];
+            }]]);
+        }];
+}
+
+- (UIAction *)ballpadAutoHideTouchControlsAction
+{
+    __weak BallpadGameOverlay *weakSelf = self;
+    UIAction *action = [UIAction actionWithTitle:@"Auto-hide Touch Controls with Controller"
+                                           image:[UIImage systemImageNamed:@"gamecontroller"]
+                                      identifier:nil
+                                         handler:^(__kindof UIAction *selected) {
+        (void)selected;
+        [weakSelf ballpadSetAutoHideTouchControls:
+            !SunPadSettings.sharedSettings.hideTouchControlsWhenControllerConnected];
+    }];
+    action.state = SunPadSettings.sharedSettings.hideTouchControlsWhenControllerConnected
+        ? UIMenuElementStateOn : UIMenuElementStateOff;
+    return action;
+}
+
+// The saved choice, shared with the vendored panel's switch. Off shows the controls immediately,
+// on applies the current controller state immediately. "Show Touch Controls" turns it off, so the
+// controls stay up with the controller connected until the player turns it back on.
+- (void)ballpadSetAutoHideTouchControls:(BOOL)autoHide
+{
+    SunPadSettings *settings = SunPadSettings.sharedSettings;
+    settings.hideTouchControlsWhenControllerConnected = autoHide;
+    [settings synchronize];
+    UIView *panelSwitch = BallpadControlLabelled(self, @"Hide touch controls when controller connected");
+    if ([panelSwitch isKindOfClass:UISwitch.class])
+        ((UISwitch *)panelSwitch).on = autoHide;
+    [self applyControllerVisibility];
+    BallpadLogSettingsSnapshot(@"menu auto-hide touch controls");
+    [self refreshMenuButton];
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+    if ((self = [super initWithFrame:frame]))
+    {
+        // The bridge reconciles on the same GameController notifications the vendored overlay
+        // observes, in no fixed order, so the decision is repeated once the slot table is current.
+        // The vendored -dealloc removes every observer of self.
+        [NSNotificationCenter.defaultCenter addObserver:self
+                                               selector:@selector(applyControllerVisibility)
+                                                   name:BallpadPhysicalControllersDidChangeNotification
+                                                 object:nil];
+    }
+    return self;
+}
+
+- (void)applyControllerVisibility
+{
+    const BOOL hide = BallpadTouchControlsHidden(
+        BallpadOverlayIsEditingLayout(self),
+        SunPadSettings.sharedSettings.hideTouchControlsWhenControllerConnected,
+        [[BallpadPhysicalControllers sharedControllers] touchPlayerHasController]);
+    [self setTouchControlsHidden:hide animated:YES];
+}
+
+- (void)setTouchControlsHidden:(BOOL)hidden animated:(BOOL)animated
+{
+    if (hidden)
+    {
+        // Nothing hidden may stay held: the planted zones, the vendored buttons, sticks and
+        // trigger, and the right shoulder this file tracks itself.
+        NSDictionary *zones = objc_getAssociatedObject(self, BallpadPlantedZonesKey);
+        for (BallpadPlantedZoneView *zone in zones.allValues)
+            [zone ballpadEndTouch];
+        [self clearTouchInput];
+        s_rightShoulderHeld = false;
+        s_rightShoulderPressEdge = false;
+    }
+    if (hidden != self.ballpadTouchControlsHidden)
+        BallpadLog(@"touch controls: %@", hidden ? @"hidden for a controller" : @"shown");
+    self.ballpadTouchControlsHidden = hidden;
+    [super setTouchControlsHidden:hidden animated:animated];
+}
+
+// A touch that began before the controls hid can keep reporting; hidden controls press nothing.
+- (void)stickChanged:(UIView *)stick x:(float)x y:(float)y
+{
+    if (!self.ballpadTouchControlsHidden)
+        [super stickChanged:stick x:x y:y];
+}
+
+- (void)buttonDown:(UIButton *)button
+{
+    if (!self.ballpadTouchControlsHidden)
+        [super buttonDown:button];
+}
+
+- (void)rPressureChanged:(uint8_t)pressure fullPress:(BOOL)fullPress
+{
+    if (!self.ballpadTouchControlsHidden)
+        [super rPressureChanged:pressure fullPress:fullPress];
 }
 
 #pragma mark - Render resolution (item 5)

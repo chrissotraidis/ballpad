@@ -3,10 +3,12 @@
 #import "BallpadPhysicalControllers.h"
 
 #import "BallpadLog.h"
+#import "BallpadTouchControlsVisibility.h"
 #import "SunPadControllerSlots.h"
 #import "SunPadInputMixer.h"
 
 #import <GameController/GameController.h>
+#import <TargetConditionals.h>
 
 #include <algorithm>
 #include <array>
@@ -16,6 +18,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+
+NSNotificationName const BallpadPhysicalControllersDidChangeNotification =
+    @"BallpadPhysicalControllersDidChangeNotification";
 
 namespace {
 
@@ -515,6 +520,12 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
                  (unsigned)mapping.gameY, (unsigned)mapping.gameZ);
     }
   }
+
+  if (!result.removed.empty() || !result.assigned.empty()) {
+    [NSNotificationCenter.defaultCenter
+        postNotificationName:BallpadPhysicalControllersDidChangeNotification
+                      object:self];
+  }
 }
 
 - (BOOL)readPlayer:(NSUInteger)player state:(SunPadInputState *)state {
@@ -531,6 +542,16 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
     if (state.connected != 0) ++count;
   }
   return count;
+}
+
+- (BOOL)touchPlayerHasController {
+#if TARGET_OS_SIMULATOR
+  // The Simulator can report virtual controllers that would hide the touch controls in testing.
+  return NO;
+#else
+  return BallpadTouchPlayerHasController(
+      _slots, [[BallpadScriptedController sharedScriptedController] controllerInstanceID]);
+#endif
 }
 
 @end
