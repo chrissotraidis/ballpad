@@ -26,6 +26,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Posted on the main thread after a reconcile changes which controller holds a slot.
+extern NSNotificationName const BallpadPhysicalControllersDidChangeNotification;
+
 // One frame of a physical controller, in the vocabulary the vendored mapping table speaks: the four
 // face buttons plus the left shoulder as `SunPadPhysicalControllerButton`, and every other element
 // as itself. `leftTrigger`/`rightTrigger` are the analog lines at 0..1, which is what
@@ -85,10 +88,12 @@ SunPadInputState BallpadAdaptPhysicalControllerSample(
 // publishes into the mixer and reads back what it published.
 - (BOOL)readPlayer:(NSUInteger)player state:(SunPadInputState*)state;
 
-// How many slots hold a controller. The interface's own controller-visibility rule asks
-// GameController directly (see the vendored overlay), so this is the bridge's bookkeeping rather
-// than a second answer to the same question.
+// How many slots hold a controller.
 - (NSUInteger)connectedControllerCount;
+
+// Whether a physical controller holds slot 0, the port the touch controls drive. This is what the
+// overlay's auto-hide asks (BallpadTouchControlsVisibility.h).
+- (BOOL)touchPlayerHasController;
 
 @end
 
