@@ -13,6 +13,8 @@
   <key>CFBundleVersion</key><string>1</string>
   <key>LSRequiresIPhoneOS</key><true/>
   <key>UIRequiresFullScreen</key><true/>
+  <key>UIRequiresFullScreenIgnoredStartingWithVersion</key>
+  <string>26</string>
   <key>UIApplicationSupportsIndirectInputEvents</key><true/>
   <key>UIApplicationSceneManifest</key>
   <dict>
@@ -37,6 +39,8 @@
   </array>
   <key>UISupportedInterfaceOrientations~ipad</key>
   <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
     <string>UIInterfaceOrientationLandscapeLeft</string>
     <string>UIInterfaceOrientationLandscapeRight</string>
   </array>
